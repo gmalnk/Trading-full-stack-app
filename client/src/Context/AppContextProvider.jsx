@@ -5,6 +5,7 @@ export const Context = createContext()
 
 
 export default function AppContextProvider(props) {
+  const [searchActive, setSearchActive] = useState(false);
   const [showTrendline, setShowTrendline] = useState(true);
   const [timeFrame, setTimeFrame] = useState("ONE_HOUR");
   const [stockToken, setStockToken] = useState(474);
@@ -19,7 +20,10 @@ export default function AppContextProvider(props) {
     stockToken,
     setStockToken,
     stockList,
-    setStockList}}>
+    setStockList,
+    searchActive,
+    setSearchActive,
+    }}>
     {props.children}
   </Context.Provider>)
 }

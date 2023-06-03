@@ -5,7 +5,7 @@ import AppContextProvider, { Context } from '../Context/AppContextProvider'
 
 
 export default function StockList() {
-  const {setStockToken, stockList, setStockList} = useContext(Context)
+  const {setStockToken, stockList, setStockList, stockToken} = useContext(Context)
   const [divHeight, setDivHeight] = useState(window.innerHeight - 100);
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function StockList() {
   return (
     <div className='col' style={divStyle} >
       {Object.keys(stockList).map( (key)=>{
-        return (<div id= {key} onClick={()=>handleClickOnStock(key)} className='row px-3'>
+        return (<div id= {key} onClick={()=>handleClickOnStock(key)} className= {key == stockToken? 'row px-3 border border-primary':'row px-3'}>
                 {stockList[key]}
                 </div>)
       })}

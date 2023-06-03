@@ -23,7 +23,7 @@ def get_today_candle_data():
         symboldata = yf.download(
             symbol, start=start_date, end=end_date, interval='1d')
         for i in symboldata.index:
-            data.append([stock_tocken, start_date.strftime("%Y-%m-%d %H:%m"), symboldata['Open']
+            data.append([stock_tocken, start_date.strftime("%Y-%m-%d %H:%M"), symboldata['Open']
                         [i], symboldata['High'][i], symboldata['Low'][i], symboldata['Close'][i]])
         print(stock_tocken)
     print(data)
@@ -90,20 +90,20 @@ def historic_api(stock_token, time_frame, fromdate, todate):
 
 def get_data_smart_api(time_frame):
     if (time_frame == "FIFTEEN_MINUTE"):
-        get_data_smart_api_fifteentf(time_frame)
+        get_all_data_smart_api_fifteentf(time_frame)
     if (time_frame == "ONE_DAY"):
-        get_data_smart_api_dailytf(time_frame)
+        get_all_data_smart_api_dailytf(time_frame)
         
 def get_all_data_smart_api_fifteentf(time_frame):
     for stock_token in tokens:
         data = []
-        for i in range(3):
-            fromdate = (date.today()-timedelta(days=100*(i+1))).strftime("%Y-%m-%d %H:%M")
-            todate = (date.today()-timedelta(days=1+100*(i))).strftime("%Y-%m-%d %H:%M")
+        for i in range(10):
+            fromdate = (date.today()-timedelta(days=30*(i+1))).strftime("%Y-%m-%d %H:%M")
+            todate = (date.today()-timedelta(days=1+30*(i))).strftime("%Y-%m-%d %H:%M")
             rows = historic_api(stock_token, time_frame, fromdate, todate)
             if (rows):
                 data.extend(rows)
-        time.sleep(1)
+            time.sleep(.4)
         data.sort()
         for i in range(len(data)-1):
             if (data[i][0] == data[i+1][0]):

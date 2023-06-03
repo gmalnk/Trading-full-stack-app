@@ -72,3 +72,15 @@ CREATE TABLE if not exists trades_data(
     cap REAL,
     current_value Real
 );
+
+CREATE TABLE if not exists trendlinecandles_data (
+    id BIGSERIAL PRIMARY KEY,
+    token INT NOT NULL,
+    tf varchar(14) NOT NULL,
+    time_stamp timestamptz NOT NULL,                                                        
+    open_price REAL NOT NULL,
+    high_price REAL NOT NULL,
+    low_price REAL NOT NULL,
+    close_price REAL NOT NULL,
+    CONSTRAINT trendline_trendlinecandles FOREIGN KEY (trendline_id) REFERENCES trendline_data(id)
+);

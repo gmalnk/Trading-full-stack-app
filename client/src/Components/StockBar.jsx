@@ -4,8 +4,11 @@ import TimeFrames from './TimeFrames'
 
 export default function StockBar() {
 
-  const {stockToken, stockList} = useContext(Context)
+  const {stockToken, stockList, setSearchActive} = useContext(Context)
 
+  const handleOnClickName = () => {
+    setSearchActive(true)
+  }
 
   return (
     <nav className="navbar navbar-expand-lg navbar-white bg-white">
@@ -13,14 +16,10 @@ export default function StockBar() {
         <div className="collapse navbar-collapse" id="navbarSupportedContent">
           <ul className="navbar-nav me-auto mb-2 mb-lg-0">
             <li className="nav-item px-3">
-              <p className='p-1'>{stockList[stockToken]}</p>
+              <p className='p-1' onClick={()=> handleOnClickName()}>{stockList[stockToken]}</p>
             </li>
             <TimeFrames/>
           </ul>
-          <form className="d-flex">
-            <input className="form-control me-2" type="search" placeholder="Search" aria-label="Search"/>
-            <button className="btn btn-outline-success" type="submit">Search</button>
-          </form>
         </div>
       </div>
     </nav>

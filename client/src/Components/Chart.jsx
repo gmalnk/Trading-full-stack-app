@@ -17,7 +17,7 @@ export default function ChartComponent() {
   const [stockData, setStockData] = useState({"candleData":[], "trendlineData":[]})
 
   const fetchStockData = async () => {
-    console.log(stockData+timeFrame)
+    console.log(stockToken+timeFrame)
     const response1 = await AxiosAPI.get(`/trendlines/${stockToken}/${timeFrame}`);
     const response = await AxiosAPI.get(`/${stockToken}/${timeFrame}`);
     setStockData({"candleData" : response.data.stockdata, "trendlineData": response1.data.trendlinedata})
