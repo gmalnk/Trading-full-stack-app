@@ -1,0 +1,41 @@
+.searchBoxActive {
+    position: absolute;
+    top: 100px;
+    left: 35%;
+    z-index: 10;
+    width : 30%;
+    align-items: center;
+    background-color: whitesmoke;
+    border: 1px solid black;
+    padding: 10px;
+  }
+  .searchBoxInactive {
+    position: absolute;
+    top: 100px;
+    left: 35%;
+    z-index: -1;
+    width : 30%;
+    align-items: center;
+    background-color: whitesmoke;
+    border: 1px solid black;
+    padding: 10px;
+  }
+
+  .screenActive {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    background-color: black;
+    opacity: 0.1;
+    padding: 0px;
+  }
+  .screenInactive {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    background-color: black;
+    opacity: 0.1;
+    padding: 0px;
+  }
