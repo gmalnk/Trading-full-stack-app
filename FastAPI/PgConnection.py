@@ -1,7 +1,6 @@
 import psycopg2
-import datetime
-from tokens import tokens
-from tokens import time_frames
+import math
+from tokens import *
 from config import *
 from Candle import Candle
 import Utility
@@ -102,42 +101,74 @@ def add_market_data_daily(data):
 
 def add_past_data_from_yfinance(stock_token, data):
     try:
-        cur = conn.cursor()
-        counter = 0
+        table = get_table("ONE_DAY")
+        counter = get_latest_index(stock_token, 'ONE_DAY')+1
+        query = f"INSERT INTO {table} (token, time_stamp, open_price, high_price, low_price, close_price, index) values "
         for i in data.index:
             date = data['Date'][i].strftime("%Y-%m-%d %H:%M:%S")
-            query = f"INSERT INTO dailytf_data (token, time_stamp, open_price, high_price, low_price, close_price, index) values ({stock_token},'{date}',{data['Open'][i]},{data['High'][i]},{data['Low'][i]},{data['Close'][i]},{counter})"
-            cur.execute(query)
+            query += f"({stock_token},'{date}',{data['Open'][i]},{data['High'][i]},{data['Low'][i]},{data['Close'][i]},{counter}),"
             counter = counter + 1
-            conn.commit()
+        execute_query(query[:-1])
+        conn.commit()
     except (Exception, psycopg2.Error) as error:
         print("Failed at add_past_data_from_yfinance method (error message):", error)
 
+def add_past_data_from_yfinance_once(data):
+    try:
+        for token in tokens:
+            query = f"INSERT INTO {dailytf_table} (token, time_stamp, open_price, high_price, low_price, close_price, index) values "
+            counter = 1
+            symbol = tokens[token]+".NS"
+            for i in data.index:
+                date = i.strftime("%Y-%m-%d %H:%M:%S")
+                if math.isnan(data[(symbol, 'Open')][i]) or math.isnan(data[(symbol, 'High')][i]) or math.isnan(data[(symbol, 'Low')][i]) or math.isnan(data[(symbol, 'Close')][i]):
+                    continue
+                query += f"({token},'{date}',{data[(symbol, 'Open')][i]},{data[(symbol, 'High')][i]},{data[(symbol, 'Low')][i]},{data[(symbol, 'Close')][i]},{counter}),"
+                counter = counter + 1
+            print(f"symbol: {symbol} counter: {counter}")
+            print("started adding data to database...")
+            execute_query(query[:-1])
+            conn.commit()   
+    except (Exception) as error:
+        print("Failed at add_past_data_from_yfinance method (error message):", error)
+    finally:
+        print("succesfully fetched all the data of stocks in daily time frame at once from y finance")
+
 def add_past_data_from_smart_api(stock_token, time_frame, data):
     try:
+        if data == None:
+            return
+        data.sort()
         table = get_table(time_frame)
-        cur = conn.cursor()
-        counter = 0
+        counter = get_latest_index(stock_token, time_frame)+1
+        query = f"INSERT INTO {table} (token, time_stamp, open_price, high_price, low_price, close_price, index) values "
         for row in data:
             row[0] = row[0].replace("T", " ")
-            cur.execute(
-                f"INSERT INTO {table} (token, time_stamp, open_price, high_price, low_price, close_price, index) values ({stock_token}, '{row[0]}', {row[1]}, {row[2]}, {row[3]}, {row[4]}, {counter})")
+            query += f"({stock_token}, '{row[0]}', {row[1]}, {row[2]}, {row[3]}, {row[4]}, {counter}),"
             counter = counter + 1
-            conn.commit()
+        execute_query(query[:-1])
+        conn.commit()
     except (Exception, psycopg2.Error) as error:
         print(f"failed at add_past_data_from_smart_api method failed for stock_token : {stock_token} error message: ", error)
+    finally:
+        print(f"successfully added data for stock : {stock_token} for time frame : {time_frame}")
 
 # this method is used for initializing highs and lows in the highlow_data table
 def initialize_high_low(stock_token, time_frame):
     try:
-        cur = conn.cursor()
-        candles = fetch_candles(stock_token, time_frame)
+        index = get_latest_highlow_index(stock_token, time_frame)
+        start_time = datetime.min
+        if index == 0:
+            start_time = get_starttime_of_analysis(time_frame)
+        candles = fetch_candles(stock_token, time_frame, index = index, start_time=start_time)
         candles = Utility.find_highs_and_lows(candles)
-        for candle in candles:
-            cur.execute(
-                """insert into highlow_data (index, token, time_stamp, open_price, high_price, low_price, close_price, high_low, tf) values(%s,%s,%s,%s,%s,%s,%s,%s,%s)""", [candle.Index, stock_token, candle.Date, candle.Open, candle.High, candle.Low, candle.Close, candle.High_Low, time_frame])
+        if len(candles) > 0 :
+            query = "insert into highlow_data (index, token, time_stamp, open_price, high_price, low_price, close_price, high_low, tf) values"
+            for candle in candles:
+                query += f" ({candle.Index}, {stock_token}, '{candle.Date}', {candle.Open}, {candle.High}, {candle.Low}, {candle.Close}, '{candle.High_Low}', '{time_frame}'),"
+            execute_query(query[:-1])
             conn.commit()
-        print("inserted ***********************************")
+            print("inserted ***********************************")
     except (Exception, psycopg2.Error) as error:
         print("Failed at initialize_high_low method error message: ", error)
 
@@ -148,15 +179,40 @@ def get_trendLines(stock_token, time_frame):
         lows = fetch_lows(stock_token, time_frame)
         priceData = Utility.PriceData(highs, lows)
         trendlines = priceData.TrendlinesToDraw
-        for trendline in trendlines:
-            query = f"insert into trendline_data (token, tf, slope, intercept, startdate, enddate, hl, index1, index2, index) values ({stock_token}, '{time_frame}', {trendline[0][1]}, {trendline[0][2]},'{trendline[0][0][0].Date}','{trendline[0][0][-1].Date}','{trendline[1]}' ,{trendline[0][0][0].Index},{trendline[0][0][-1].Index},500)"
-            cur.execute(query)
-            conn.commit()
+        update_trendlines(stock_token, time_frame, trendlines)
     except (Exception, psycopg2.Error) as error:
         print("Failed at get trendlines method  error message : ", error)
     finally:
         print("generated trendlines successfully for ",
               tokens[stock_token], " stock")
+        
+# this method updates trendlines in the database       
+def update_trendlines(stock_token, time_frame, trendlines):
+    try:
+        latest_index = get_latest_index(stock_token, time_frame)        
+        query = ''
+        if len(trendlines) > 0:
+            for trendline in trendlines:
+                query += f"""UPDATE trendline_data 
+                            SET 
+                                slope = {trendline[0][1]},
+                                intercept = {trendline[0][2]},
+                                startdate = '{trendline[0][0][0].Date}',
+                                enddate = '{trendline[0][0][-1].Date}',
+                                index1 = '{trendline[0][0][0].Index}',
+                                index2 = '{trendline[0][0][-1].Index}',
+                                index = {latest_index}
+                            WHERE token = {stock_token} AND
+                                tf = '{time_frame}' AND
+                                hl = '{trendline[1]}';"""
+            execute_query(query)
+            conn.commit()
+    except (Exception, psycopg2.Error) as error:
+        print("Failed at update_trendlines method  error message : ", error)
+    finally:
+        print("updated trendlines successfully for ",
+              tokens[stock_token], " stock")
+
 
 # this method fetches high candles for given stock, for given time frame
 def fetch_highs(stock_token, time_frame):
@@ -168,7 +224,7 @@ def fetch_highs(stock_token, time_frame):
         candles = []
         for row in rows:
             candles.append(
-                Candle(0, row[1], row[2], row[3], row[4], row[5], row[6], row[7], ""))
+                Candle(0, row[1], row[2], row[3], row[4], row[5], row[6], row[7],row[8]))
         return candles
     except (Exception, psycopg2.Error) as error:
         print("Failed at fetch highs error mesage: ", error)
@@ -185,7 +241,7 @@ def fetch_lows(stock_token, time_frame):
         candles = []
         for row in rows:
             candles.append(
-                Candle(0, row[1], row[2], row[3], row[4], row[5], row[6], row[7], ""))
+                Candle(0, row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]))
         return candles
     except (Exception, psycopg2.Error) as error:
         print("Failed at fetch highs error message: ", error)
@@ -194,13 +250,12 @@ def fetch_lows(stock_token, time_frame):
 
 # this method fetches all candles for given stock, for given time frame if limit is not specified 
 # if limit is provided then latest x no of candles are only returned
-def fetch_candles(stock_token, time_frame, limit=0):
+def fetch_candles(stock_token, time_frame, limit=0, index = 0, start_time = datetime.min):
     try:
         table = get_table(time_frame)
-        start_time = get_starttime_of_analysis(time_frame)
-        query = f"select * from {table} where token = {stock_token} and time_stamp >= '{start_time.strftime('%Y-%m-%d %H:%M')}' order by index desc"
+        query = f"select * from {table} where token = {stock_token} order by index desc "
         if limit > 0:
-            query += f" limit {limit}"
+            query += f"limit {limit}"
         cur.execute(query)
         rows = cur.fetchall()
         rows.reverse()
@@ -208,11 +263,13 @@ def fetch_candles(stock_token, time_frame, limit=0):
         if rows.empty:
             return None
         candles = []
-        counter = 0
         for i in rows.index:
             candles.append(
-                Candle(rows['id'][i], counter, rows['token'][i], rows['time_stamp'][i], rows['open_price'][i], rows['high_price'][i], rows['low_price'][i], rows['close_price'][i], ""))
-            counter += 1
+                Candle(rows['id'][i], rows['index'][i], rows['token'][i], rows['time_stamp'][i], rows['open_price'][i], rows['high_price'][i], rows['low_price'][i], rows['close_price'][i], ""))
+        if index > 0:
+            candles = [x for x in candles if x.Index >= index]
+        if start_time != datetime.min:
+            candles = [x for x in candles if datetime.strptime(x.Date,'%Y-%m-%d %H:%M') >= start_time]
         return candles
     except (Exception, psycopg2.Error) as error:
         print("Failed to fetch candles error message: ", error)
@@ -225,23 +282,23 @@ def fetch_candles(stock_token, time_frame, limit=0):
 def get_starttime_of_analysis(time_frame):
     match time_frame:
         case 'FIFTEEN_MINUTE':
-            return date.today()-timedelta(days=30)
+            return datetime.today()-timedelta(days=31)
         case 'THIRTY_MINUTE':
-            return date.today()-timedelta(days=60)
+            return datetime.today()-timedelta(days=61)
         case 'ONE_HOUR':
-            return date.today()-timedelta(weeks=14)
+            return datetime.today()-timedelta(weeks=14)
         case 'TWO_HOUR':
-            return date.today()-timedelta(weeks=28)
+            return datetime.today()-timedelta(weeks=28)
         case 'FOUR_HOUR':
-            return date(date.today().year-1, date.today().month, date.today().day)
+            return datetime(date.today().year-1, date.today().month, date.today().day)
         case 'ONE_DAY':
-            return date(date.today().year-2, date.today().month, date.today().day)
+            return datetime(date.today().year-2, date.today().month, date.today().day)
         case 'ONE_WEEK':
-            return date(date.today().year-20, date.today().month, date.today().day)
+            return datetime(date.today().year-20, date.today().month, date.today().day)
         case 'ONE_MONTH':
-            return date(date.today().year-20, date.today().month, date.today().day)
+            return datetime(date.today().year-20, date.today().month, date.today().day)
         case default:
-            return date.today()
+            return datetime.today()
 
 # we have stored fifteen minute data in fifteentf_data table in historicdata data base
 # we have stored daily data in dailytf_data table in historicdata data base
@@ -373,16 +430,101 @@ def data_handler(time_frame, start_time):
         print("inserted ***********************************")
     except (Exception, psycopg2.Error) as error:
         print("failed at data_handler error mesage: ",error)
-    
 
-def run_trendline_generator():
+# this method's functionality is to get latest candle's index for given stock and give time_frame
+def get_latest_index(stock_token, time_frame):
     try:
+        table = get_table(time_frame)
+        query = f"select max(index) from {table} where token = {stock_token}"
+        execute_query(query)
+        rows = cur.fetchall()
+        if rows[0][0] == None:
+             return 0
+        return rows[0][0]
+    except (Exception, psycopg2.Error) as error:
+        print(f"failed at get_latest_index method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)
+
+# this method's functionality is to get latest candle's date for given stock and give time_frame
+# used when fetching latest candles data
+def get_latest_date(stock_token, time_frame):
+    try:
+        table = get_table(time_frame)
+        query = f"select max(time_stamp) from {table} where token = {stock_token}"
+        execute_query(query)
+        rows = cur.fetchall()
+        if rows[0][0] == None:
+             return 0
+        return rows[0][0]
+    except (Exception, psycopg2.Error) as error:
+        print(f"failed at get_latest_date method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)
+
+# this method's functionality is to get latest high/low candle's index for given stock and give time_frame
+def get_latest_highlow_index(stock_token, time_frame):
+    try:
+        query = f"select max(index) from highlow_data where token = {stock_token} and tf = '{time_frame}'"
+        execute_query(query)
+        rows = cur.fetchall()
+        if rows[0][0] == None:
+             return 0
+        return rows[0][0]
+    except (Exception, psycopg2.Error) as error:
+        print(f"failed at get_latest_index method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)    
+
+# this method's functionality is to initialize trendline_data table with initial values
+def initialize_trendline_data_table():
+    try:
+        # query = 'DROP TABLE if exists trendlinecandels_data; DROP TABLE if exists trendline_data;'
+        # query +='''CREATE TABLE if not exists trendline_data(
+        #             id BIGSERIAL PRIMARY KEY,
+        #             token INT NOT NULL,
+        #             tf varchar(14),
+        #             slope REAL NOT NULL,
+        #             intercept REAL NOT NULL,
+        #             startdate timestamptz NOT NULL,
+        #             enddate timestamptz NOT NULL,
+        #             hl varchar(2) NOT NULL,
+        #             index1 INT NOT NULL,
+        #             index2 INT NOT NULL,
+        #             index Int Not Null
+        #         );'''
+        # execute_query(query)
+        query = 'INSERT INTO trendline_data (token, tf, slope, intercept, startdate, enddate, hl, index1, index2, index) values '
+        date_str = date.today().strftime('%Y-%m-%d %H:%M')
         for stock_token in tokens:
             for time_frame in time_frames:
-                initialize_high_low(stock_token, time_frame)
-                get_trendLines(stock_token,time_frame)
+                query += f"""({stock_token}, '{time_frame}',{0},{-1},'{date_str}', '{date_str}', 'H', {0},{0},{0}), 
+                             ({stock_token}, '{time_frame}',{0},{-1},'{date_str}', '{date_str}', 'L', {0},{0},{0}),"""
+        execute_query(query[:-1])
+        conn.commit()
     except (Exception, psycopg2.Error) as error:
-        print("failed at run_trendline_generator method error mesage: ",error)
+        print(f"failed at initialize_trendline_data_table method error mesage: ",error) 
+    finally:
+        print("succesfully initialized trendline_data table")
+
+# this method increments the index of the trendlines for given timeframe
+# used repetatively for every new candle formed in any time frame in real time
+def increment_index(time_frame):
+    try:
+        query = f"""UPDATE trendline_data
+                    SET index = index +1
+                    WHERE tf= {time_frame}"""
+        execute_query(query)
+        conn.commit()
+    except (Exception, psycopg2.Error) as error:
+        print("failed at increment_index method error mesage: ",error)
+    finally:
+        print(f"succesfully incremented trendline_data table index for given time_frame {time_frame}")
+        
+
+
+
+
+
+
+
+
+
+
 
 
 # FRONTEND API METHODS
@@ -408,11 +550,13 @@ def api_get_stock_data(stock_token, time_frame):
     except (Exception, psycopg2.Error) as error:
         print(f"failed while responding api call in method api_get_stock_data for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)
 
+
+# this method provides trendline data, for given stock token, for given time frame, for plotting in UI
 def api_get_trendline_data(stock_token, time_frame):
     try:
         data = []
         query = f"select * from trendline_data where token = {stock_token} and tf = '{time_frame}'"
-        cur.execute(query)
+        execute_query(query)
         rows = cur.fetchall()
         for row in rows:
             data.append([{

@@ -81,6 +81,32 @@ def filter_highs_lows(candles):
                 filtered_highs_lows.append(candle)
     return filtered_highs_lows
 
+def filter_highs(candles):
+    if (len(candles) == 0):
+        return []
+    filtered_highs = []
+    max_candle = Candle(0, 0, 0, datetime.today(), 0, 0, 0, 0, '')
+    for candle in candles:
+        # todo -- second condition high > high is to be replaced with the compare candles 
+        if candle.High > max_candle.High:
+            max_candle = candle
+    print("max candle index : ", max_candle.Index)
+    filtered_highs = [x for x in candles if x.Index >= max_candle.Index]
+    return filtered_highs
+
+def filter_lows(candles):
+    if (len(candles) == 0):
+        return []
+    filtered_lows = []
+    min_candle = Candle(0, 0, 0, datetime.today(), float(
+        'inf'), float('inf'), float('inf'), float('inf'), '')
+    for candle in candles:
+        # todo -- condition high > high is to be replaced with the compare candles 
+        if (candle.Low < min_candle.Low):
+            min_candle = candle
+    print("min candle index : ", min_candle.Index)
+    filtered_lows = [x for x in candles if x.Index >= min_candle.Index]
+    return filtered_lows
 
 class PriceData:
 
@@ -88,8 +114,8 @@ class PriceData:
     def __init__(self, highs, lows):
 
         # initialization
-        self.Highs = highs
-        self.Lows = lows
+        self.Highs = filter_highs(highs)
+        self.Lows = filter_lows(lows)
         self.HighsForDownTrendLines = []
         self.LowsForUpTrendLines = []
         self.Trendlines = []

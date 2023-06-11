@@ -13,7 +13,7 @@ obj = SmartConnect(api_key=APIKEY)
 data = obj.generateSession(USERNAME, APIPASSWORD, pyotp.TOTP(TOKEN).now())
 authToken = data['data']['refreshToken']
 refreshToken = data['data']['refreshToken']
-
+ 
 # fetch the feedtoken
 feedToken = obj.getfeedToken()
 print(feedToken)
