@@ -3,6 +3,7 @@ import math
 from tokens import *
 from config import *
 from Candle import Candle
+from Trendline import TrendLine
 import Utility
 import time
 from time import time
@@ -134,6 +135,25 @@ def add_past_data_from_yfinance_once(data):
     finally:
         print("succesfully fetched all the data of stocks in daily time frame at once from y finance")
 
+def add_latest_data_from_yfinance_once(data):
+    try:
+        query = f"INSERT INTO {dailytf_table} (token, time_stamp, open_price, high_price, low_price, close_price, index) values "
+        for token in tokens:
+            counter = get_latest_index(token, "ONE_DAY") + 1
+            symbol = tokens[token]+".NS"
+            for i in data.index:
+                date = i.strftime("%Y-%m-%d %H:%M:%S")
+                if math.isnan(data[(symbol, 'Open')][i]) or math.isnan(data[(symbol, 'High')][i]) or math.isnan(data[(symbol, 'Low')][i]) or math.isnan(data[(symbol, 'Close')][i]):
+                    continue
+                query += f"({token},'{date}',{data[(symbol, 'Open')][i]},{data[(symbol, 'High')][i]},{data[(symbol, 'Low')][i]},{data[(symbol, 'Close')][i]},{counter}),"
+                counter = counter + 1
+        execute_query(query[:-1])
+        conn.commit()   
+    except (Exception) as error:
+        print("Failed at add_latest_data_from_yfinance_once method (error message):", error)
+    finally:
+        print("succesfully fetched all latest data of stocks in daily time frame at once from y finance")
+
 def add_past_data_from_smart_api(stock_token, time_frame, data):
     try:
         if data == None:
@@ -169,6 +189,8 @@ def initialize_high_low(stock_token, time_frame):
             execute_query(query[:-1])
             conn.commit()
             print("inserted ***********************************")
+            return 1
+        return 0
     except (Exception, psycopg2.Error) as error:
         print("Failed at initialize_high_low method error message: ", error)
 
@@ -177,7 +199,8 @@ def get_trendLines(stock_token, time_frame):
     try:
         highs = fetch_highs(stock_token, time_frame)
         lows = fetch_lows(stock_token, time_frame)
-        priceData = Utility.PriceData(highs, lows)
+        candles = fetch_candles(stock_token = stock_token, time_frame = time_frame, index = min(highs[0].Index, lows[0].Index)-5)
+        priceData = Utility.PriceData(highs, lows, candles)
         trendlines = priceData.TrendlinesToDraw
         update_trendlines(stock_token, time_frame, trendlines)
     except (Exception, psycopg2.Error) as error:
@@ -195,16 +218,17 @@ def update_trendlines(stock_token, time_frame, trendlines):
             for trendline in trendlines:
                 query += f"""UPDATE trendline_data 
                             SET 
-                                slope = {trendline[0][1]},
-                                intercept = {trendline[0][2]},
-                                startdate = '{trendline[0][0][0].Date}',
-                                enddate = '{trendline[0][0][-1].Date}',
-                                index1 = '{trendline[0][0][0].Index}',
-                                index2 = '{trendline[0][0][-1].Index}',
-                                index = {latest_index}
+                                slope = {trendline.Slope},
+                                intercept = {trendline.Intercept},
+                                startdate = '{trendline.Candles[0].Date}',
+                                enddate = '{trendline.Candles[-1].Date}',
+                                index1 = '{trendline.Candles[0].Index}',
+                                index2 = '{trendline.Candles[-1].Index}',
+                                index = {latest_index},
+                                connects = {trendline.NoOfPoints}
                             WHERE token = {stock_token} AND
                                 tf = '{time_frame}' AND
-                                hl = '{trendline[1]}';"""
+                                hl = '{trendline.HL}';"""
             execute_query(query)
             conn.commit()
     except (Exception, psycopg2.Error) as error:
@@ -501,6 +525,21 @@ def initialize_trendline_data_table():
     finally:
         print("succesfully initialized trendline_data table")
 
+def initialize_trendline_generator_table():
+    query = "INSERT INTO trendline_generator (token, tf, run) values "
+    for stock_token in tokens:
+        for time_frame in time_frames:
+            query += f"({stock_token}, '{time_frame}', False),"
+    execute_query(query[:-1])
+    conn.commit()
+
+def update_trendline_generator_table(updates):
+    query = ""
+    for item in updates:
+        query += f"UPDATE trendline_generator SET run = True WHERE token = {item[0]} and tf = '{item[1]}';"
+    if query:
+        execute_query(query)
+        conn.commit()
 # this method increments the index of the trendlines for given timeframe
 # used repetatively for every new candle formed in any time frame in real time
 def increment_index(time_frame):
@@ -515,8 +554,33 @@ def increment_index(time_frame):
     finally:
         print(f"succesfully incremented trendline_data table index for given time_frame {time_frame}")
         
+def initialize_stocks_details_table():
+    try:
+        query = """INSERT INTO stock_details
+        (token, name, category) values
+        """
+        for token in tokens:
+            query += f"({token}, '{tokens[token]}', ''),"
+        execute_query(query[:-1])
+        conn.commit()
+    except (Exception, psycopg2.Error) as error:
+        print("failed at initialize_stocks_details_table method error mesage: ",error)
 
-
+def get_stock_details():
+    query = "select * from stock_details;"
+    execute_query(query)
+    rows = cur.fetchall()
+    stock_details = {}
+    for row in rows:
+        stock_details[row[1]]=(
+            {
+            "name":row[2],
+            "category": row[3]}
+        )
+    # print(stock_details)
+    # print(stock_details[474]["name"])
+    print(stock_details)
+    return stock_details
 
 
 
@@ -537,6 +601,8 @@ def api_get_stock_data(stock_token, time_frame):
         cur.execute(query)
         rows = cur.fetchall()
         rows = convert_data_timeframe(time_frame, rows)
+        # if rows.empty :
+        #     return {"stockData" : data}
         for i in rows.index:
             data.append({
                 "time": int(rows['time_stamp'][i].replace(tzinfo=timezone.utc).timestamp()),
@@ -545,11 +611,37 @@ def api_get_stock_data(stock_token, time_frame):
                 "low":rows['low_price'][i],
                 "close":rows['close_price'][i]
                 })
-        data  = {"stockdata" : data}
+        data  = {"stockData" : data}
         return data
     except (Exception, psycopg2.Error) as error:
         print(f"failed while responding api call in method api_get_stock_data for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)
 
+def add_trade_data(tradedetails): 
+    try:
+        entry_condition = ""
+        if tradedetails["tradeOnCandleClose"] :
+            entry_condition += "Close"
+        if tradedetails["tradeOnCandleOpen"] :
+            entry_condition += "Open"
+        query = f"""INSERT INTO trades_data
+        (token, tf, status, direction, entry_condition, tp, sl, quantity)
+        values
+        (
+            {tradedetails['stockToken']},
+            '{tradedetails['timeFrame']}',
+            'TODO',
+            '{tradedetails["tradeDirection"]}',
+            '{entry_condition}',
+            {tradedetails["takeProfit"]},
+            {tradedetails["stopLoss"]},
+            {tradedetails["numOfShares"]}        
+        )
+        """
+        execute_query(query)
+        conn.commit()
+    except (Exception, psycopg2.Error) as error:
+        print(f"failed while responding api call in method add_trade_data for stock_token: {tradedetails['stockToken']} and time_frame : {tradedetails['timeFrame']} error mesage: ",error)
+    
 
 # this method provides trendline data, for given stock token, for given time frame, for plotting in UI
 def api_get_trendline_data(stock_token, time_frame):
@@ -558,18 +650,53 @@ def api_get_trendline_data(stock_token, time_frame):
         query = f"select * from trendline_data where token = {stock_token} and tf = '{time_frame}'"
         execute_query(query)
         rows = cur.fetchall()
+        data = []
+        hl = ""
         for row in rows:
-            data.append([{
-                "time": int(row[5].replace(tzinfo=timezone.utc).timestamp()),
-                "value" :row[3]*row[8]+row[4]
-                },
-                   {
-                "time": int(row[6].replace(tzinfo=timezone.utc).timestamp()),
-                "value" :row[3]*row[9]+row[4]
-                }])
-        data  = {"trendlinedata" : data}
+            slope = row[3]
+            intercept = row[4]
+            if not(row[3] == 0 and row[4] == -1):
+                data.append([{
+                    "time": int(row[5].replace(tzinfo=timezone.utc).timestamp()),
+                    "value" :slope*row[8]+intercept
+                    },
+                    {
+                    "time": int(row[6].replace(tzinfo=timezone.utc).timestamp()),
+                    "value" :slope*row[9]+intercept
+                    }])
+                hl += row[7]
+        data  = {"trendlineData" : data, "linesData":hl}
         return data
     except (Exception, psycopg2.Error) as error:
         print(f"failed while responding api call in method api_get_trendline_data for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)
 
+def get_trades():
+    query = """SELECT trades_data.id, stock_details.name, trades_data.tf, trades_data.status, trades_data.direction, trades_data.quantity, trades_data.bp, trades_data.sp, trades_data.tp, trades_data.sl,trades_data.pl 
+                FROM stock_details 
+                INNER JOIN trades_data  
+                ON stock_details.token = trades_data.token"""
+    execute_query(query)
+    rows = cur.fetchall()
+    tradesData = []
+    for row in rows:
+        tradesData.append(
+            {
+                "id":row[0],
+                "stockName":row[1],
+                "timeFrame":row[2],
+                "status":row[3],
+                "direction":"Long" if row[4] =="H" else "Short",
+                "quantity": row[5],
+                "entryPrice":row[6] if row[6] != None else "---",
+                "exitPrice":row[7] if row[7] != None else "---",
+                "takeProfit":row[8],
+                "stopLoss":row[9],
+                "p&l":row[10] if row[10] != None else "---"
+            }
+        )
+    return {"tradesData":tradesData}
 
+def delete_trade(id):
+    query = f"delete from trades_data where id = {id}"
+    execute_query(query)
+    conn.commit()

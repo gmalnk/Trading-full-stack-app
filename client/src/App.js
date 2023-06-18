@@ -7,6 +7,7 @@ import Login from "./Routes/Login";
 import About from "./Routes/About";
 import Stocks from "./Routes/Stocks";
 import Navbar from "./Components/Navbar";
+import Exp from "./Components/exp";
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
             <Route exact path="/login" Component={Login} />
             <Route exact path="/about" Component={About} />
             <Route exact path="/stocks" Component={Stocks} />
+            <Route exact path="/exp" Component={Exp} />
           </Routes>
         </Router>
       </div>

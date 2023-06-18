@@ -28,3 +28,7 @@ __pycache__
 client/node_modules
 SQL
 run.py
+config.py
+Solver.py
+exp.py
+exp.jsx

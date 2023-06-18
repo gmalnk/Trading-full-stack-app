@@ -1,6 +1,7 @@
 from Candle import Candle
 from datetime import datetime
 from Solver import Solver
+from Trendline import TrendLine
 # returns True if the given candle is Local Maximum else False
 
 
@@ -111,11 +112,12 @@ def filter_lows(candles):
 class PriceData:
 
     # Constructor
-    def __init__(self, highs, lows):
+    def __init__(self, highs, lows, candles):
 
         # initialization
         self.Highs = filter_highs(highs)
         self.Lows = filter_lows(lows)
+        self.Candles = candles
         self.HighsForDownTrendLines = []
         self.LowsForUpTrendLines = []
         self.Trendlines = []
@@ -194,7 +196,7 @@ class PriceData:
             else:
                 return 0
 
-    # this method find if a trendline is possible for given three candles
+    # this method finds if a trendline is possible for given three candles
     def IsTrendLinePossible(self, candles, H_L):
         candle3 = candles[-1]
         if (H_L == "H"):
@@ -220,7 +222,7 @@ class PriceData:
                     candles = [self.HighsForDownTrendLines[i],
                                self.HighsForDownTrendLines[j], self.HighsForDownTrendLines[k]]
                     if (self.IsTrendLinePossible(candles, "H")):
-                        self.Trendlines.append(candles)
+                        self.Trendlines.append(TrendLine(candles,0,0,"H"))
         print("getting higher order trendlines for highs")
         self.GetHigherOrderTrendLines("H")
 
@@ -230,7 +232,7 @@ class PriceData:
                     candles = [self.LowsForUpTrendLines[i],
                                self.LowsForUpTrendLines[j], self.LowsForUpTrendLines[k]]
                     if (self.IsTrendLinePossible(candles, "L")):
-                        self.Trendlines.append(candles)
+                        self.Trendlines.append(TrendLine(candles,0,0,"L"))
         print("getting higher order trendlines for lows")
         self.GetHigherOrderTrendLines("L")
 
@@ -276,167 +278,136 @@ class PriceData:
         if H_L == "H":
             # Using this for loop we get possible higher order trendlines of highs which are valid
             for i in range(len(self.Trendlines)-1):
-                if self.Trendlines[i][0].Date == self.Trendlines[i+1][0].Date and i >= skipper:
+                if self.Trendlines[i].Candles[0].Date == self.Trendlines[i+1].Candles[0].Date and i >= skipper:
                     counter += 1
                 else:
                     if counter == 3 and len(self.Trendlines) >= (i+2):
-                        if self.Trendlines[i-2][1].Date == self.Trendlines[i+1][0].Date:
-                            candles = [self.Trendlines[i][0], self.Trendlines[i+1]
-                                       [0], self.Trendlines[i][1], self.Trendlines[i][2]]
+                        if self.Trendlines[i-2].Candles[1].Date == self.Trendlines[i+1].Candles[0].Date:
+                            candles = [self.Trendlines[i].Candles[0], self.Trendlines[i+1].Candles[0], self.Trendlines[i].Candles[1], self.Trendlines[i].Candles[2]]
                             pricerange = self.EqualCandles(candles, "H")
                             if (pricerange[0] > pricerange[-1]):
-                                higherOrderTrendlines.append(
-                                    [candles, 0, pricerange[0]])
+                                higherOrderTrendlines.append(TrendLine(candles, 0, pricerange[0], "H"))
                             else:
                                 [Intercept, Slope] = Solver.RunH(candles)
-                                if Slope != None:
-                                    if (self.IsTrendlineValid([candles, Slope, Intercept], "H")):
-                                        higherOrderTrendlines.append(
-                                            [candles, Slope, Intercept])
-                                        for j in range(counter+1):
-                                            trendlinesToRemove.append(
-                                                self.Trendlines[i-j+1])
+                                if Slope != None and self.IsTrendlineValid([candles, Slope, Intercept], "H"):
+                                    higherOrderTrendlines.append(TrendLine(candles, Slope, Intercept, "H"))
+                                    for j in range(counter+1):
+                                        trendlinesToRemove.append(self.Trendlines[i-j+1])
                         counter = 1
                         skipper = i+2
                     elif counter == 6 and len(self.Trendlines) >= (i+5):
-                        if self.Trendlines[i-5][1].Date == self.Trendlines[i+1][0].Date and self.Trendlines[i-5][2].Date == self.Trendlines[i+4][0].Date:
-                            candles = [self.Trendlines[i][0], self.Trendlines[i+1][0],
-                                       self.Trendlines[i+1][1], self.Trendlines[i][1], self.Trendlines[i][2]]
+                        if self.Trendlines[i-5].Candles[1].Date == self.Trendlines[i+1].Candles[0].Date and self.Trendlines[i-5].Candles[2].Date == self.Trendlines[i+4].Candles[0].Date:
+                            candles = [self.Trendlines[i].Candles[0], self.Trendlines[i+1].Candles[0],
+                                       self.Trendlines[i+1].Candles[1], self.Trendlines[i].Candles[1], self.Trendlines[i].Candles[2]]
                             pricerange = self.EqualCandles(candles, "H")
                             if (pricerange[0] > pricerange[-1]):
-                                higherOrderTrendlines.append(
-                                    [candles, 0, pricerange[0]])
+                                higherOrderTrendlines.append(TrendLine(candles, 0, pricerange[0], "H"))
                             else:
                                 [Intercept, Slope] = Solver.RunH(candles)
-                                if Slope != None:
-                                    if (self.IsTrendlineValid([candles, Slope, Intercept], "H")):
-                                        higherOrderTrendlines.append(
-                                            [candles, Slope, Intercept])
-                                        for j in range(counter+4):
-                                            trendlinesToRemove.append(
-                                                self.Trendlines[i-j+4])
+                                if Slope != None and self.IsTrendlineValid([candles, Slope, Intercept], "H"):
+                                    higherOrderTrendlines.append(TrendLine(candles, Slope, Intercept, "H"))
+                                    for j in range(counter+4):
+                                        trendlinesToRemove.append(self.Trendlines[i-j+4])
                         counter = 1
                         skipper = i+5
                     elif counter == 10 and len(self.Trendlines) >= (i+11):
-                        if self.Trendlines[i-9][1].Date == self.Trendlines[i+1][0].Date and self.Trendlines[i-9][2].Date == self.Trendlines[i+7][0].Date and self.Trendlines[i+1][2].Date == self.Trendlines[i+10][0].Date:
-                            candles = [self.Trendlines[i][0], self.Trendlines[i+1][0], self.Trendlines[i+1]
-                                       [1], self.Trendlines[i+1][2], self.Trendlines[i][1], self.Trendlines[i][2]]
+                        if self.Trendlines[i-9].Candles[1].Date == self.Trendlines[i+1].Candles[0].Date and self.Trendlines[i-9].Candles[2].Date == self.Trendlines[i+7].Candles[0].Date and self.Trendlines[i+1].Candles[2].Date == self.Trendlines[i+10].Candles[0].Date:
+                            candles = [self.Trendlines[i].Candles[0], self.Trendlines[i+1].Candles[0], self.Trendlines[i+1].Candles
+                                       [1], self.Trendlines[i+1].Candles[2], self.Trendlines[i].Candles[1], self.Trendlines[i].Candles[2]]
                             pricerange = self.EqualCandles(candles, "H")
                             if (pricerange[0] > pricerange[-1]):
-                                higherOrderTrendlines.append(
-                                    [candles, 0, pricerange[0]])
+                                higherOrderTrendlines.append(TrendLine(candles, 0, pricerange[0], "H"))
                             else:
                                 [Intercept, Slope] = Solver.RunH(candles)
-                                if Slope != None:
-                                    if (self.IsTrendlineValid([candles, Slope, Intercept], "H")):
-                                        higherOrderTrendlines.append(
-                                            [candles, Slope, Intercept])
+                                if Slope != None and self.IsTrendlineValid([candles, Slope, Intercept], "H"):
+                                    higherOrderTrendlines.append(TrendLine(candles, Slope, Intercept, "H"))
                                 for j in range(counter+10):
-                                    trendlinesToRemove.append(
-                                        self.Trendlines[i-j+10])
+                                    trendlinesToRemove.append(self.Trendlines[i-j+10])
                         counter = 1
                         skipper = i + 11
             for trendline in trendlinesToRemove:
                 self.Trendlines.remove(trendline)
             if (higherOrderTrendlines):
-                self.TrendlinesToDraw.append([higherOrderTrendlines[-1],"H"])
+                self.TrendlinesToDraw.append(higherOrderTrendlines[-1])
             else:
                 for trendline in reversed(self.Trendlines):
-                    candles = trendline
+                    candles = trendline.Candles
                     pricerange = self.EqualCandles(candles, H_L)
-                    if (pricerange[0] > pricerange[1]):
-                        trendline = [candles, 0, pricerange[0]]
-                        if (self.IsTrendlineValid(trendline, H_L)):
-                            self.TrendlinesToDraw.append([trendline, "H"])
-                            break
+                    if (pricerange[0] > pricerange[1]) and self.IsTrendlineValid([candles, 0, pricerange[0]], H_L):
+                        self.TrendlinesToDraw.append(TrendLine(candles, 0, pricerange[0], "H"))
+                        break
                     else:
                         [Intercept, Slope] = Solver.RunH(candles)
-                        if Slope != None:
-                            if (self.IsTrendlineValid([candles, Slope, Intercept], H_L)):
-                                self.TrendlinesToDraw.append(
-                                    [[candles, Slope, Intercept],"H"])
-                                break
+                        if Slope != None and self.IsTrendlineValid([candles, Slope, Intercept], H_L):
+                            self.TrendlinesToDraw.append(TrendLine(candles, Slope, Intercept, "H"))
+                            break
 
         if H_L == "L":
             # Using this for loop we get possible higher order trendlines of lows which are valid
             for i in range(len(self.Trendlines)-1):
-                if self.Trendlines[i][0].Date == self.Trendlines[i+1][0].Date and i >= skipper:
+                if self.Trendlines[i].Candles[0].Date == self.Trendlines[i+1].Candles[0].Date and i >= skipper:
                     counter += 1
                 else:
                     if counter == 3 and len(self.Trendlines) >= (i+2):
-                        if self.Trendlines[i-2][1].Date == self.Trendlines[i+1][0].Date:
-                            candles = [self.Trendlines[i][0], self.Trendlines[i+1]
-                                       [0], self.Trendlines[i][1], self.Trendlines[i][2]]
+                        if self.Trendlines[i-2].Candles[1].Date == self.Trendlines[i+1].Candles[0].Date:
+                            candles = [self.Trendlines[i].Candles[0], self.Trendlines[i+1].Candles[0], self.Trendlines[i].Candles[1], self.Trendlines[i].Candles[2]]
                             pricerange = self.EqualCandles(candles, "L")
                             if (pricerange[0] > pricerange[-1]):
-                                higherOrderTrendlines.append(
-                                    [candles, 0, pricerange[1]])
+                                higherOrderTrendlines.append(TrendLine(candles, 0, pricerange[1], "L"))
                             else:
                                 [Intercept, Slope] = Solver.RunL(candles)
-                                if Slope != None:
-                                    if (self.IsTrendlineValid([candles, Slope, Intercept], "L")):
-                                        higherOrderTrendlines.append(
-                                            [candles, Slope, Intercept])
-                                        for j in range(counter+1):
-                                            trendlinesToRemove.append(
-                                                self.Trendlines[i-j+1])
+                                if Slope != None and self.IsTrendlineValid([candles, Slope, Intercept], "L"):
+                                    higherOrderTrendlines.append(TrendLine(candles, Slope, Intercept, "L"))
+                                    for j in range(counter+1):
+                                        trendlinesToRemove.append(
+                                            self.Trendlines[i-j+1])
                         counter = 1
                         skipper = i + 2
                     elif counter == 6 and len(self.Trendlines) >= (i+5):
-                        if self.Trendlines[i-5][1].Date == self.Trendlines[i+1][0].Date and self.Trendlines[i-5][2].Date == self.Trendlines[i+4][0].Date:
-                            candles = [self.Trendlines[i][0], self.Trendlines[i+1][0],
-                                       self.Trendlines[i+1][1], self.Trendlines[i][1], self.Trendlines[i][2]]
+                        if self.Trendlines[i-5].Candles[1].Date == self.Trendlines[i+1].Candles[0].Date and self.Trendlines[i-5].Candles[2].Date == self.Trendlines[i+4].Candles[0].Date:
+                            candles = [self.Trendlines[i].Candles[0], self.Trendlines[i+1].Candles[0],
+                                       self.Trendlines[i+1].Candles[1], self.Trendlines[i].Candles[1], self.Trendlines[i].Candles[2]]
                             pricerange = self.EqualCandles(candles, "L")
                             if (pricerange[0] > pricerange[-1]):
-                                higherOrderTrendlines.append(
-                                    [candles, 0, pricerange[1]])
+                                higherOrderTrendlines.append(TrendLine(candles, 0, pricerange[1], "L"))
                             else:
                                 [Intercept, Slope] = Solver.RunL(candles)
-                                if Slope != None:
-                                    if (self.IsTrendlineValid([candles, Slope, Intercept], "L")):
-                                        higherOrderTrendlines.append(
-                                            [candles, Slope, Intercept])
-                                        for j in range(counter+4):
-                                            trendlinesToRemove.append(
-                                                self.Trendlines[i-j+4])
+                                if Slope != None and self.IsTrendlineValid([candles, Slope, Intercept], "L"):
+                                    higherOrderTrendlines.append(TrendLine(candles, Slope, Intercept, "L"))
+                                    for j in range(counter+4):
+                                        trendlinesToRemove.append(
+                                            self.Trendlines[i-j+4])
                         counter = 1
                         skipper = i + 5
                     elif counter == 10 and len(self.Trendlines) >= (i+11):
-                        if self.Trendlines[i-9][1].Date == self.Trendlines[i+1][0].Date and self.Trendlines[i-9][2].Date == self.Trendlines[i+7][0].Date and self.Trendlines[i+1][2].Date == self.Trendlines[i+10][0].Date:
-                            candles = [self.Trendlines[i][0], self.Trendlines[i+1][0], self.Trendlines[i+1]
-                                       [1], self.Trendlines[i+1][2], self.Trendlines[i][1], self.Trendlines[i][2]]
+                        if self.Trendlines[i-9].Candles[1].Date == self.Trendlines[i+1].Candles[0].Date and self.Trendlines[i-9].Candles[2].Date == self.Trendlines[i+7].Candles[0].Date and self.Trendlines[i+1].Candles[2].Date == self.Trendlines[i+10].Candles[0].Date:
+                            candles = [self.Trendlines[i].Candles[0], self.Trendlines[i+1].Candles[0], self.Trendlines[i+1].Candles
+                                       [1], self.Trendlines[i+1].Candles[2], self.Trendlines[i].Candles[1], self.Trendlines[i].Candles[2]]
                             pricerange = self.EqualCandles(candles, "L")
                             if (pricerange[0] > pricerange[-1]):
-                                higherOrderTrendlines.append(
-                                    [candles, 0, pricerange[1]])
+                                higherOrderTrendlines.append(TrendLine(candles, 0, pricerange[1], "L"))
                             else:
                                 [Intercept, Slope] = Solver.RunL(candles)
-                                if Slope != None:
-                                    if (self.IsTrendlineValid([candles, Slope, Intercept], "L")):
-                                        higherOrderTrendlines.append(
-                                            [candles, Slope, Intercept])
-                                        for j in range(counter+10):
-                                            trendlinesToRemove.append(
-                                                self.Trendlines[i-j+10])
+                                if Slope != None and self.IsTrendlineValid([candles, Slope, Intercept], "L"):
+                                    higherOrderTrendlines.append(TrendLine(candles, Slope, Intercept, "L"))
+                                    for j in range(counter+10):
+                                        trendlinesToRemove.append(
+                                            self.Trendlines[i-j+10])
                         counter = 1
                         skipper = i + 11
             for trendline in trendlinesToRemove:
                 self.Trendlines.remove(trendline)
             if (higherOrderTrendlines):
-                self.TrendlinesToDraw.append([higherOrderTrendlines[-1],"L"])
+                self.TrendlinesToDraw.append(higherOrderTrendlines[-1])
             else:
                 for trendline in reversed(self.Trendlines):
-                    candles = trendline
+                    candles = trendline.Candles
                     pricerange = self.EqualCandles(candles, H_L)
-                    if (pricerange[0] > pricerange[1]):
-                        trendline = [candles, 0, pricerange[1]]
-                        if (self.IsTrendlineValid(trendline, H_L)):
-                            self.TrendlinesToDraw.append([trendline,"L"])
+                    if (pricerange[0] > pricerange[1]) and self.IsTrendlineValid([candles, 0, pricerange[1]], H_L):
+                            self.TrendlinesToDraw.append(TrendLine(candles, 0, pricerange[1], "L"))
                             break
                     else:
                         [Intercept, Slope] = Solver.RunL(candles)
-                        if Slope != None:
-                            if (self.IsTrendlineValid([candles, Slope, Intercept], H_L)):
-                                self.TrendlinesToDraw.append(
-                                    [[candles, Slope, Intercept],"L"])
-                                break
+                        if Slope != None and self.IsTrendlineValid([candles, Slope, Intercept], H_L):
+                            self.TrendlinesToDraw.append(TrendLine(candles, Slope, Intercept, "L"))
+                            break

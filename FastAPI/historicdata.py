@@ -27,20 +27,19 @@ print('session generated')
 # daily run for getting latest stock data
 def get_latest_candle_data(stock_token):
     try:
-        startdate_daily = PgConnection.get_latest_date(stock_token, "ONE_DAY")
         startdate_fifteen = PgConnection.get_latest_date(stock_token, "FIFTEEN_MINUTE")
-        symbol = tokens[stock_token] + ".NS"
+        # symbol = tokens[stock_token] + ".NS"
 
         # End date is today i.e the date of analysis
         end_date = date.today()
         
 
         # This line is responsible for the data fetching part        
-        if startdate_daily == 0:
-            get_all_candle_data_from_yfinance(stock_token)
-        else:
-            startdate_daily += timedelta(days=1)
-            get_latest_candle_data_fifteen(startdate_daily.date(), end_date, stock_token, "ONE_DAY")
+        # if startdate_daily == 0:
+        #     get_all_candle_data_from_yfinance(stock_token)
+        # else:
+        #     startdate_daily += timedelta(days=1)
+        #     get_latest_candle_data_fifteen(startdate_daily.date(), end_date, stock_token, "ONE_DAY")
             
         if startdate_fifteen == 0:
             get_all_data_smart_api_fifteentf("FIFTEEN_MINUTE", stock_token)
