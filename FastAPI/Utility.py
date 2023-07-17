@@ -1,7 +1,7 @@
-from Candle import Candle
+from FastAPI.Candle import Candle
 from datetime import datetime
-from Solver import Solver
-from Trendline import TrendLine
+from FastAPI.Solver import Solver
+from FastAPI.Trendline import TrendLine
 # returns True if the given candle is Local Maximum else False
 
 
@@ -328,7 +328,15 @@ class PriceData:
             for trendline in trendlinesToRemove:
                 self.Trendlines.remove(trendline)
             if (higherOrderTrendlines):
-                self.TrendlinesToDraw.append(higherOrderTrendlines[-1])
+                better_trendline = Solver.RunHH(higherOrderTrendlines[-1].Candles, self.Candles)
+                # initial_guess = [better_trendline.Slope, better_trendline.Intercept]
+                # better_trendline = Solver.Generate_Optimal_TrendLine_SLSQP(higherOrderTrendlines[-1].Candles, self.Candles, initial_guess)
+                
+                
+                if better_trendline.Slope != None:
+                    self.TrendlinesToDraw.append(better_trendline)
+                else:
+                    self.TrendlinesToDraw.append(higherOrderTrendlines[-1])
             else:
                 for trendline in reversed(self.Trendlines):
                     candles = trendline.Candles
@@ -336,10 +344,10 @@ class PriceData:
                     if (pricerange[0] > pricerange[1]) and self.IsTrendlineValid([candles, 0, pricerange[0]], H_L):
                         self.TrendlinesToDraw.append(TrendLine(candles, 0, pricerange[0], "H"))
                         break
-                    else:
-                        [Intercept, Slope] = Solver.RunH(candles)
-                        if Slope != None and self.IsTrendlineValid([candles, Slope, Intercept], H_L):
-                            self.TrendlinesToDraw.append(TrendLine(candles, Slope, Intercept, "H"))
+                    else: 
+                        trendline = Solver.RunHH(candles, self.Candles)
+                        if trendline.Slope != None and self.IsTrendlineValid([trendline.Candles, trendline.Slope, trendline.Intercept], H_L):
+                            self.TrendlinesToDraw.append(trendline)
                             break
 
         if H_L == "L":

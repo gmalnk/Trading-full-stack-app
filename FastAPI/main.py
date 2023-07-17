@@ -1,8 +1,7 @@
-from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import PgConnection
-from tokens import tokens
+from FastAPI import PgConnection
+from FastAPI.tokens import tokens
 
 app = FastAPI()
 

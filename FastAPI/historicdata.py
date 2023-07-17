@@ -1,24 +1,24 @@
-import PgConnection
-from tokens import tokens
+from FastAPI import PgConnection
 import time
 from datetime import date
 from datetime import timedelta
-import yfinance as yf
-from api import TradingAPI
-
-api = TradingAPI()
 
 # daily run for getting latest stock data for fifteen minute
-def get_latest_candle_data(stock_token):
+def get_latest_candle_data(api, stock_token):
     try:
         startdate_fifteen = PgConnection.get_latest_date(stock_token, "FIFTEEN_MINUTE")
         end_date = date.today()
         
         if startdate_fifteen == 0:
-            get_all_data_smart_api_fifteentf("FIFTEEN_MINUTE", stock_token)
+            get_all_data_smart_api_fifteentf(api, "FIFTEEN_MINUTE", stock_token)
         else:
             startdate_fifteen += timedelta(days=1)
-            get_latest_candle_data_fifteen(startdate_fifteen.date(), end_date, stock_token, "FIFTEEN_MINUTE")
+            get_latest_candle_data_from_smartAPI(api, startdate_fifteen.date(), end_date, stock_token, "FIFTEEN_MINUTE")
+        
+        startdate_daily = PgConnection.get_latest_date(stock_token, "ONE_DAY")
+        if startdate_daily != 0:
+            startdate_daily += timedelta(days=1)
+            get_latest_candle_data_from_smartAPI(api, startdate_daily.date(), end_date, stock_token, "ONE_DAY")
     except (Exception) as error:
         print("Failed at get_latest_candle_data method error message: ", error)
     finally:
@@ -26,7 +26,7 @@ def get_latest_candle_data(stock_token):
 
 
 # this method gets data between starttime and endtine for given stock and given time frame
-def get_latest_candle_data_fifteen(startdate_fifteen, end_date, stock_token, time_frame):
+def get_latest_candle_data_from_smartAPI(api, startdate_fifteen, end_date, stock_token, time_frame):
     try:
         if startdate_fifteen > end_date:
             return
@@ -42,7 +42,7 @@ def get_latest_candle_data_fifteen(startdate_fifteen, end_date, stock_token, tim
         print(f"successfully fetched latest data for stock_token: {stock_token} and time_frame : {time_frame}")
 
 
-def get_all_data_smart_api_fifteentf(time_frame, stock_token):
+def get_all_data_smart_api_fifteentf(api, time_frame, stock_token):
     try:
         data = []
         for i in range(16):

@@ -1,8 +1,8 @@
 from smartapi import SmartConnect
-from web_socketV2 import SmartWebSocketV2
+from FastAPI.web_socketV2 import SmartWebSocketV2
 import pyotp
-import PgConnection
-from config import *
+from FastAPI import PgConnection
+from FastAPI.config import *
 
 class TradingAPI:
     def __init__(self):

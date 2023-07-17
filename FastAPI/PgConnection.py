@@ -1,19 +1,15 @@
 import psycopg2
 import math
-from tokens import *
-from config import *
-from Candle import Candle
-from Trendline import TrendLine
-import Utility
-import time
-from time import time
+from FastAPI.tokens import *
+from FastAPI.config import *
+from FastAPI.Candle import Candle
+from FastAPI import Utility
 from datetime import timedelta
 from datetime import datetime
 from datetime import timezone
 from datetime import date
 import pandas as pd
 import numpy
-from api import TradingAPI
 from psycopg2.extensions import register_adapter, AsIs
 
 def addapt_numpy_float64(numpy_float64):
@@ -25,7 +21,6 @@ def addapt_numpy_int64(numpy_int64):
 register_adapter(numpy.float64, addapt_numpy_float64)
 register_adapter(numpy.int64, addapt_numpy_int64)
 
-api =TradingAPI()
 
 # this method uses environmnet variables and psycopg2 package to connect to postgres data base
 def connect_to_database():
@@ -140,6 +135,9 @@ def add_past_data_from_yfinance_once(data):
 
 def add_latest_data_from_yfinance_once(data):
     try:
+        if data.empty:
+            print("data provided to add_latest_data_from_yfinance_once is empty")
+            return
         query = f"INSERT INTO {dailytf_table} (token, time_stamp, open_price, high_price, low_price, close_price, index) values "
         for token in tokens:
             counter = get_latest_index(token, "ONE_DAY") + 1
@@ -193,6 +191,7 @@ def initialize_high_low(stock_token, time_frame):
             conn.commit()
             print("inserted ***********************************")
             return 1
+        print("candles length is zero")
         return 0
     except (Exception, psycopg2.Error) as error:
         print("Failed at initialize_high_low method error message: ", error)
@@ -202,7 +201,7 @@ def get_trendLines(stock_token, time_frame):
     try:
         highs = fetch_highs(stock_token, time_frame)
         lows = fetch_lows(stock_token, time_frame)
-        candles = fetch_candles(stock_token = stock_token, time_frame = time_frame, index = min(highs[0].Index, lows[0].Index)-5)
+        candles = fetch_candles(stock_token = stock_token, time_frame = time_frame, index = min(highs[0].Index, lows[0].Index)-10)
         priceData = Utility.PriceData(highs, lows, candles)
         trendlines = priceData.TrendlinesToDraw
         update_trendlines(stock_token, time_frame, trendlines)
@@ -219,6 +218,8 @@ def update_trendlines(stock_token, time_frame, trendlines):
         query = ''
         if len(trendlines) > 0:
             for trendline in trendlines:
+                if (trendline.Slope == None):
+                    continue
                 query += f"""UPDATE trendline_data 
                             SET 
                                 slope = {trendline.Slope},
@@ -290,9 +291,11 @@ def fetch_candles(stock_token, time_frame, limit=0, index = 0, start_time = date
         if rows.empty:
             return None
         candles = []
+        candle_index = 1
         for i in rows.index:
             candles.append(
-                Candle(rows['id'][i], rows['index'][i], rows['token'][i], rows['time_stamp'][i], rows['open_price'][i], rows['high_price'][i], rows['low_price'][i], rows['close_price'][i], ""))
+                Candle(rows['id'][i], candle_index, rows['token'][i], rows['time_stamp'][i], rows['open_price'][i], rows['high_price'][i], rows['low_price'][i], rows['close_price'][i], ""))
+            candle_index += 1
         if index > 0:
             candles = [x for x in candles if x.Index >= index]
         if start_time != datetime.min:
@@ -480,7 +483,7 @@ def get_latest_highlow_index(stock_token, time_frame):
              return 0
         return rows[0][0]
     except (Exception, psycopg2.Error) as error:
-        print(f"failed at get_latest_index method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)    
+        print(f"failed at get_latest_index method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)   
 
 # this method's functionality is to initialize trendline_data table with initial values
 def initialize_trendline_data_table():
@@ -549,10 +552,11 @@ def initialize_stocks_details_table():
     except (Exception, psycopg2.Error) as error:
         print("failed at initialize_stocks_details_table method error mesage: ",error)
 
-# this method trades
-def execute_trades_on_candle_close(time_frame, start_time, end_time):
+
+def execute_trades_on_candle_close(api, time_frame, start_time):
     try:
         trades_executed = []
+        end_time = start_time + timedelta(minutes=no_of_minutes(time_frame))
         trades = get_trades(time_frame, start_time, end_time)
         for trade in trades:
             if ( trade[13] > trade[7]*trade[9]+trade[8] ):
