@@ -1,8 +1,14 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, {
+  forwardRef,
+  useContext,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from "react";
 import { Context } from "../Context/AppContextProvider";
 import AxiosAPI from "../API/AxiosAPI";
 
-const TradeForm = () => {
+const TradeForm = forwardRef(({ removeTradeBox }, ref) => {
   const [tradeDirection, setTradeDirection] = useState("");
   const [numOfShares, setNumOfShares] = useState(0);
   const [takeProfit, setTakeProfit] = useState(0);
@@ -11,7 +17,15 @@ const TradeForm = () => {
   const [tradeOnCandleOpen, setTradeOnCandleOpen] = useState(false);
   const { timeFrame, stockToken, setTradeBoxActive, stockList, linesData } =
     useContext(Context);
+
+  useImperativeHandle(ref, () => ({
+    removeTradeBox() {
+      initializeAllStatesOfTradeFormComponent(true);
+    },
+  }));
+
   const regex = /^[0-9]*\.?[0-9]*$/;
+
   const handleNumOfSharesChange = (e) => {
     if (regex.test(e.target.value)) {
       setNumOfShares(e.target.value);
@@ -41,14 +55,15 @@ const TradeForm = () => {
   const handleOptionChange = (e) => {
     setTradeDirection(e.target.value);
   };
-  const initializeAllStatesOfTradeFormComponent = (changeStateOfTradeBox) => {
+
+  const initializeAllStatesOfTradeFormComponent = (makeTradeBoxInActive) => {
     setNumOfShares(0);
     setTakeProfit(0);
     setStopLoss(0);
     setTradeOnCandleClose(false);
     setTradeOnCandleOpen(false);
     setTradeDirection("");
-    if (changeStateOfTradeBox === true) {
+    if (makeTradeBoxInActive === true) {
       setTradeBoxActive(false);
     }
   };
@@ -163,12 +178,13 @@ const TradeForm = () => {
         <button
           type="submit"
           className="btn btn-primary"
-          onClick={handleOnClickSubmit}>
+          onClick={handleOnClickSubmit}
+        >
           Submit
         </button>
       </form>
     </div>
   );
-};
+});
 
 export default TradeForm;

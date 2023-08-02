@@ -28,7 +28,8 @@ export default function AppContextProvider(props) {
         setTradeBoxActive,
         linesData,
         setLinesData,
-      }}>
+      }}
+    >
       {props.children}
     </Context.Provider>
   );

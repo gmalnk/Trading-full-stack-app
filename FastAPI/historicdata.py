@@ -1,4 +1,5 @@
 from FastAPI import PgConnection
+from FastAPI.fast_api_lib_if import *
 import time
 from datetime import date
 from datetime import timedelta
@@ -20,9 +21,9 @@ def get_latest_candle_data(api, stock_token):
             startdate_daily += timedelta(days=1)
             get_latest_candle_data_from_smartAPI(api, startdate_daily.date(), end_date, stock_token, "ONE_DAY")
     except (Exception) as error:
-        print("Failed at get_latest_candle_data method error message: ", error)
+        daily_logger.error("Failed at get_latest_candle_data method error message: " + str(error))
     finally:
-        print(f"successfully fetched latest data for stock_token: {stock_token}")
+        daily_logger.info(f"successfully fetched latest data for stock_token: {stock_token}")
 
 
 # this method gets data between starttime and endtine for given stock and given time frame
@@ -35,11 +36,11 @@ def get_latest_candle_data_from_smartAPI(api, startdate_fifteen, end_date, stock
             PgConnection.add_past_data_from_smart_api(
                 stock_token, time_frame, rows)
         else:
-            print(f"stock {stock_token} has not been updated from last 30 days")
+            daily_logger.info(f"stock {stock_token} has not been updated from last 30 days")
     except (Exception) as error:
-        print("Failed at get_latest_candle_data_fifteen method error message: ", error)
+        daily_logger.error("Failed at get_latest_candle_data_fifteen method error message: " + str(error))
     finally:
-        print(f"successfully fetched latest data for stock_token: {stock_token} and time_frame : {time_frame}")
+        daily_logger.info(f"successfully fetched latest data for stock_token: {stock_token} and time_frame : {time_frame}")
 
 
 def get_all_data_smart_api_fifteentf(api, time_frame, stock_token):
@@ -53,15 +54,15 @@ def get_all_data_smart_api_fifteentf(api, time_frame, stock_token):
                 data.extend(rows)
             time.sleep(.4)
         if len(data) == 0:
-            print(f"not found data for fifteen min tf at smart api for stock_token {stock_token}")
+            daily_logger.info(f"not found data for fifteen min tf at smart api for stock_token {stock_token}")
             return
-        print(f"successfully fetched all fifteen tf data for stock_token: {stock_token}")
+        daily_logger.info(f"successfully fetched all fifteen tf data for stock_token: {stock_token}")
         PgConnection.add_past_data_from_smart_api(
             stock_token, time_frame, data)
     except (Exception) as error:
-        print("Failed at get_all_data_smart_api_fifteentf method error message: ", error)
+        daily_logger.error("Failed at get_all_data_smart_api_fifteentf method error message: " + str(error))
     finally:
-        print(f"done for stock_token : {stock_token}")
+        daily_logger.info(f"done for stock_token : {stock_token}")
 
 
 # not being used for getting the latest data

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from FastAPI import PgConnection
-from FastAPI.tokens import tokens
+from FastAPI.Constants import tokens
 
 app = FastAPI()
 
@@ -28,6 +28,10 @@ def get_startup():
 def get_stocklist():
     return tokens
     # return   PgConnection.get_stock_details()
+
+@app.get("/newstocklist")
+def get_stocklist():
+    return   PgConnection.get_stock_details()
     
 @app.put("/stocklist")
 def  update_stocklist(stockDetails:dict):
@@ -50,7 +54,7 @@ def add_trade( tradedetails:dict):
 
 @app.get("/trades")
 def get_trades():
-    return PgConnection.get_trades()
+    return PgConnection.get_all_trades()
 
 @app.delete("/trade/{id}")
 def delete_trade(id:int):

@@ -3,10 +3,15 @@ import { Context } from "../Context/AppContextProvider";
 import TimeFrames from "./TimeFrames";
 
 export default function StockBar() {
-  const { stockToken, stockList, setSearchActive } = useContext(Context);
+  const { stockToken, stockList, setSearchActive, setTradeBoxActive} = useContext(Context);
 
   const handleOnClickName = () => {
     setSearchActive(true);
+  };
+
+  const handleOnClickTrade = () => {
+    //show trade box
+    setTradeBoxActive(true);
   };
 
   return (
@@ -21,6 +26,14 @@ export default function StockBar() {
             </li>
             <TimeFrames />
           </ul>
+          <div className="float-end p-1 text-white">
+                <span
+                  className="text-white bg-primary rounded p-1"
+                  onClick={() => handleOnClickTrade()}
+                >
+                  Add Trade
+                </span>
+              </div>
         </div>
       </div>
     </nav>

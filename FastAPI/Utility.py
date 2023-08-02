@@ -1,7 +1,12 @@
 from FastAPI.Candle import Candle
+from FastAPI.fast_api_lib_if import *
+from FastAPI.config import *
 from datetime import datetime
+from datetime import timedelta
+from datetime import date
 from FastAPI.Solver import Solver
 from FastAPI.Trendline import TrendLine
+import pandas as pd
 # returns True if the given candle is Local Maximum else False
 
 
@@ -43,7 +48,7 @@ def find_highs_and_lows(candles):
         candles[i].High_Low = high_low
         if (high_low != ""):
             high_low_candles.append(candles[i])
-    print("length of high low cangles : ", len(high_low_candles))
+    daily_logger.info("length of high low cangles : " + str(len(high_low_candles)))
     if len(high_low_candles) <= 1:
         return high_low_candles
     high_low_candles = filter_highs_lows(high_low_candles)
@@ -63,8 +68,8 @@ def filter_highs_lows(candles):
                 min_candle = candle
     else:
         return []
-    print("max candle index : ", max_candle.Index)
-    print("min candle index : ", min_candle.Index)
+    daily_logger.info("max candle index : " + str(max_candle.Index))
+    daily_logger.info("min candle index : " + str(min_candle.Index))
     for candle in candles:
         if candle.High_Low == 'high' and candle.Index >= max_candle.Index:
             filtered_highs_lows.append(candle)
@@ -83,20 +88,20 @@ def filter_highs_lows(candles):
     return filtered_highs_lows
 
 def filter_highs(candles):
-    if (len(candles) == 0):
+    if (not candles):
         return []
     filtered_highs = []
     max_candle = Candle(0, 0, 0, datetime.today(), 0, 0, 0, 0, '')
     for candle in candles:
         # todo -- second condition high > high is to be replaced with the compare candles 
-        if candle.High > max_candle.High:
+        if candle.High > max_candle.High and candle.Low > max_candle.High:
             max_candle = candle
-    print("max candle index : ", max_candle.Index)
+    daily_logger.info("max candle index : " + str(max_candle.Index))
     filtered_highs = [x for x in candles if x.Index >= max_candle.Index]
     return filtered_highs
 
 def filter_lows(candles):
-    if (len(candles) == 0):
+    if (not candles):
         return []
     filtered_lows = []
     min_candle = Candle(0, 0, 0, datetime.today(), float(
@@ -105,9 +110,154 @@ def filter_lows(candles):
         # todo -- condition high > high is to be replaced with the compare candles 
         if (candle.Low < min_candle.Low):
             min_candle = candle
-    print("min candle index : ", min_candle.Index)
+    daily_logger.info("min candle index : " + str(min_candle.Index))
     filtered_lows = [x for x in candles if x.Index >= min_candle.Index]
     return filtered_lows
+
+
+# this method converts ltp  data to pandas ohlc data
+def convert_ltp_to_ohlc(time_frame, rows):
+    try:
+        df = pd.DataFrame(rows, columns=['id', 'token', 'time_stamp', 'ltp'])
+        df['Date'] = df['time_stamp']
+        df = df.set_index('Date')
+        df = df['ltp'].resample(time_frame).ohlc(_method='ohlc')
+        return df
+    except (Exception) as error:
+        daily_logger.error("Failed at convert_data_timeframe method error mesage: " + str(error))
+
+
+# this method returns no of minutes in a time frame
+def no_of_minutes(time_frame):
+    match time_frame:
+        case 'FIFTEEN_MINUTE':
+            return 15
+        case 'THIRTY_MINUTE':
+            return 30
+        case 'ONE_HOUR':
+            return 60
+        case 'TWO_HOUR':
+            return 120
+        case 'FOUR_HOUR':
+            return 240
+        case default:
+            return 0
+
+
+# method provides offset based on time frame 
+# off set of 9 hours 15 minutes is provided for time frames below one day
+# off set of 0 hours 0 minutes is provided for time frames above four hours
+def get_offset(time_frame):
+    match time_frame:
+        case 'FIFTEEN_MINUTE':
+            return '9h15min'
+        case 'THIRTY_MINUTE':
+            return '9h15min'
+        case 'ONE_HOUR':
+            return '9h15min'
+        case 'TWO_HOUR':
+            return '9h15min'
+        case 'FOUR_HOUR':
+            return '9h15min'
+        case 'ONE_DAY':
+            return '0h0min'
+        case 'ONE_WEEK':
+            return '0h0min'
+        case 'ONE_MONTH':
+            return '0h0min'
+        case default:
+            return '0h0min'
+
+# This method takes api timeframe example : "ONE_DAY", "FIFTEEN_MINUTE"
+# returns pandas timeframe example : "15T", "1H", "D", "W", "M"
+def convert_timeframe(time_frame):
+    match time_frame:
+        case 'FIFTEEN_MINUTE':
+            return "15T"
+        case 'THIRTY_MINUTE':
+            return "30T"
+        case 'ONE_HOUR':
+            return "1H"
+        case 'TWO_HOUR':
+            return "2H"
+        case 'FOUR_HOUR':
+            return "4H"
+        case 'ONE_DAY':
+            return "D"
+        case 'ONE_WEEK':
+            return "W"
+        case 'ONE_MONTH':
+            return "M"
+        case default:
+            return "D"
+
+
+# after fetching data from data base we convert it into required time frame using this method
+# it uses pandas resample function with offset and dropna function to remove NAN values
+def convert_data_timeframe(time_frame, rows):
+    try:
+        off_set = get_offset(time_frame)
+        df = pd.DataFrame(rows, columns=['id', 'index', 'token', 'time_stamp',
+                        'open_price', 'high_price', 'low_price', 'close_price'])
+        df['Date'] = df['time_stamp']
+        df = df.set_index('Date')
+        if time_frame == "ONE_DAY" or time_frame == "FIFTEEN_MINUTE":
+            return df
+        df = df.resample(convert_timeframe(time_frame), offset=off_set).apply(OHLC)
+        return df.dropna()
+    except (Exception) as error:
+        daily_logger.error("Failed at convert_data_timeframe method error mesage: " + str(error))
+
+
+# we have stored fifteen minute data in fifteentf_data table in historicdata data base
+# we have stored daily data in dailytf_data table in historicdata data base
+# all the data up to four hour is created using the fifteentf_data table 
+# all the data above one day is created using the dailytf_data table 
+# this method provides which data table to use based on time frame
+def get_table(time_frame):
+    match time_frame:
+        case 'FIFTEEN_MINUTE':
+            return "fifteentf_data"
+        case 'THIRTY_MINUTE':
+            return "fifteentf_data"
+        case 'ONE_HOUR':
+            return "fifteentf_data"
+        case 'TWO_HOUR':
+            return "fifteentf_data"
+        case 'FOUR_HOUR':
+            return "fifteentf_data"
+        case 'ONE_DAY':
+            return "dailytf_data"
+        case 'ONE_WEEK':
+            return "dailytf_data"
+        case 'ONE_MONTH':
+            return "dailytf_data"
+        case default:
+            return "dailytf_data"
+
+
+# we dont analyse all the data for all time frames, we limit out data for analysis hence 
+# this method provides the start time of the analysis based on the time frame
+def get_starttime_of_analysis(time_frame):
+    match time_frame:
+        case 'FIFTEEN_MINUTE':
+            return datetime.today()-timedelta(days=31)
+        case 'THIRTY_MINUTE':
+            return datetime.today()-timedelta(days=61)
+        case 'ONE_HOUR':
+            return datetime.today()-timedelta(weeks=14)
+        case 'TWO_HOUR':
+            return datetime.today()-timedelta(weeks=28)
+        case 'FOUR_HOUR':
+            return datetime(date.today().year-1, date.today().month, date.today().day)
+        case 'ONE_DAY':
+            return datetime(date.today().year-2, date.today().month, date.today().day)
+        case 'ONE_WEEK':
+            return datetime(date.today().year-20, date.today().month, date.today().day)
+        case 'ONE_MONTH':
+            return datetime(date.today().year-20, date.today().month, date.today().day)
+        case default:
+            return datetime.today()
 
 class PriceData:
 
@@ -129,10 +279,8 @@ class PriceData:
         if (self.Lows):
             self.FindLowsForUpTrendLines()
 
-        print("len of highs for downtrend lines : ",
-              len(self.HighsForDownTrendLines))
-        print("len of lows for downtrend lines : ",
-              len(self.LowsForUpTrendLines))
+        daily_logger.info("len of highs for downtrend lines : " + str(len(self.HighsForDownTrendLines)))
+        daily_logger.info("len of lows for downtrend lines : " + str(len(self.LowsForUpTrendLines)))
         # Gets all trend lines
         self.GetTrendLines()
 
@@ -223,7 +371,7 @@ class PriceData:
                                self.HighsForDownTrendLines[j], self.HighsForDownTrendLines[k]]
                     if (self.IsTrendLinePossible(candles, "H")):
                         self.Trendlines.append(TrendLine(candles,0,0,"H"))
-        print("getting higher order trendlines for highs")
+        daily_logger.info("getting higher order trendlines for highs")
         self.GetHigherOrderTrendLines("H")
 
         for i in range(len(self.LowsForUpTrendLines)):
@@ -233,7 +381,7 @@ class PriceData:
                                self.LowsForUpTrendLines[j], self.LowsForUpTrendLines[k]]
                     if (self.IsTrendLinePossible(candles, "L")):
                         self.Trendlines.append(TrendLine(candles,0,0,"L"))
-        print("getting higher order trendlines for lows")
+        daily_logger.info("getting higher order trendlines for lows")
         self.GetHigherOrderTrendLines("L")
 
     # this method returns pricerange if the candles form a trendline with zero slop then pricerange[0] is greater than pricerange[1]
@@ -419,3 +567,4 @@ class PriceData:
                         if Slope != None and self.IsTrendlineValid([candles, Slope, Intercept], H_L):
                             self.TrendlinesToDraw.append(TrendLine(candles, Slope, Intercept, "L"))
                             break
+

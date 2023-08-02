@@ -1,3 +1,7 @@
+from enum import Enum
+ 
+
+
 tokens = {
 '474': '3MINDIA',
 '2595' : '3PLAND',
@@ -702,8 +706,8 @@ tokens = {
 '11677' : 'INDOCO',
 '10993' : 'INDORAMA',
 '14952' : 'INDOWIND',
-'4870' : 'INDSWFTLAB',
-'11602' : 'INDSWFTLTD',
+# '4870' : 'INDSWFTLAB',
+# '11602' : 'INDSWFTLTD',
 '21957' : 'INDTERRAIN',
 '5258' : 'INDUSINDBK',
 '29135' : 'INDUSTOWER',
@@ -1714,7 +1718,28 @@ tokens = {
 dailytf_table = "dailytf_data"
 fifteentf_table = "fifteentf_data"
 highlow_table = "highlow_data"
-trendline_table= "trendline_data"
+trendline_table = "trendline_data"
+
+class Numbers(Enum):
+    MAX = float('inf')
+    MIN = float('-inf')
+    ZERO = 0
+    ONE = 1
+    TWO = 2
+    THREE = 3
+    FOUR = 4
+    FIVE = 5
+    SIX = 6
+    SEVEN = 7
+    EIGHT = 8
+    NINE = 9
+    TEN = 10
+
+class Exchanges(Enum):
+    NSE = 'NSE'
+    BSE = 'BSE'
+    MCX = 'MCX'
+    
 
 Nifty_100 = [
     '13',
