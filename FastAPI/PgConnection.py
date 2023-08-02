@@ -1,9 +1,10 @@
 import psycopg2
 import math
-from FastAPI.tokens import *
+from FastAPI.fast_api_lib_if import *
+from FastAPI.Constants import *
 from FastAPI.config import *
 from FastAPI.Candle import Candle
-from FastAPI import Utility
+from FastAPI.Utility import *
 from datetime import timedelta
 from datetime import datetime
 from datetime import timezone
@@ -52,8 +53,8 @@ def add_ticks_data(token, data):
         cur.execute(
             """INSERT INTO ticks_data (symbol_token, time_stamp, ltp) values(%s, %s, %s)""", [token, datetime.fromtimestamp(data['exchange_timestamp']/1000.0).strftime('%Y-%m-%d %H:%M:%S'), data['last_traded_price']/100.0])
         conn.commit()
-    except (Exception, psycopg2.Error) as error:
-        print("Failed to insert record into ticks_data table error message:", error)
+    except (Exception) as error:
+        real_time_logger.error("Failed to insert record into ticks_data table error message:" + str(error))
 
 # this method takes is run on a periodic basis when we want to get the candle data in real time
 # this method parameters are stocken tocken, time_frame, start time , end time 
@@ -79,8 +80,8 @@ def get_ticks_candles(token, time_frame, start_time, end_time=None):
             candles.append(Candle(
                 0, 0, token, i, rows['open'][i], rows['high'][i], rows['low'][i], rows['close'][i], ""))
         return candles
-    except (Exception, psycopg2.Error) as error:
-        print("Failed at get candles from ticks_data table error message:", error)
+    except (Exception) as error:
+        trades_executer_logger.error("Failed at get candles from ticks_data table error message:" + str(error))
 
 # this method is responsible for storing each day data, of all stocks, everyday
 # data is a array of array having elements as follows symbol_token, time_stamp, open_price, high_price, low_price, close_price, high_low
@@ -92,8 +93,8 @@ def add_market_data_daily(data):
             cur.execute("""INSERT INTO daily_data (symbol_token, time_stamp, open_price, high_price, low_price, close_price, high_low) values (%s,%s,%s,%s,%s,%s,'')""", [
                         row[0], row[1], row[2], row[3], row[4], row[5]])
             conn.commit()
-    except (Exception, psycopg2.Error) as error:
-        print("Failed at add_market_data_daily method (error message):", error)
+    except (Exception) as error:
+        daily_logger.error("Failed at add_market_data_daily method (error message):" + str(error))
 
 # this method is responsible for inserting all the past data of a stock
 # parameter data is a pandas dataframe it has columns Date, Open, High, Low, Close respectively from smart_api and yfianance
@@ -109,8 +110,8 @@ def add_past_data_from_yfinance(stock_token, data):
             counter = counter + 1
         execute_query(query[:-1])
         conn.commit()
-    except (Exception, psycopg2.Error) as error:
-        print("Failed at add_past_data_from_yfinance method (error message):", error)
+    except (Exception) as error:
+        daily_logger.error("Failed at add_past_data_from_yfinance method (error message):" + str(error))
 
 def add_past_data_from_yfinance_once(data):
     try:
@@ -124,19 +125,19 @@ def add_past_data_from_yfinance_once(data):
                     continue
                 query += f"({token},'{date}',{data[(symbol, 'Open')][i]},{data[(symbol, 'High')][i]},{data[(symbol, 'Low')][i]},{data[(symbol, 'Close')][i]},{counter}),"
                 counter = counter + 1
-            print(f"symbol: {symbol} counter: {counter}")
-            print("started adding data to database...")
+            daily_logger.info(f"symbol: {symbol} counter: {counter}")
+            daily_logger.info("started adding data to database...")
             execute_query(query[:-1])
             conn.commit()   
     except (Exception) as error:
-        print("Failed at add_past_data_from_yfinance method (error message):", error)
+        daily_logger.error("Failed at add_past_data_from_yfinance method (error message):" + str(error))
     finally:
-        print("succesfully fetched all the data of stocks in daily time frame at once from y finance")
+        daily_logger.info("succesfully fetched all the data of stocks in daily time frame at once from y finance")
 
 def add_latest_data_from_yfinance_once(data):
     try:
         if data.empty:
-            print("data provided to add_latest_data_from_yfinance_once is empty")
+            daily_logger.info("data provided to add_latest_data_from_yfinance_once is empty")
             return
         query = f"INSERT INTO {dailytf_table} (token, time_stamp, open_price, high_price, low_price, close_price, index) values "
         for token in tokens:
@@ -151,9 +152,9 @@ def add_latest_data_from_yfinance_once(data):
         execute_query(query[:-1])
         conn.commit()   
     except (Exception) as error:
-        print("Failed at add_latest_data_from_yfinance_once method (error message):", error)
+        daily_logger.error("Failed at add_latest_data_from_yfinance_once method (error message):" + str(error))
     finally:
-        print("succesfully fetched all latest data of stocks in daily time frame at once from y finance")
+        daily_logger.info("succesfully fetched all latest data of stocks in daily time frame at once from y finance")
 
 def add_past_data_from_smart_api(stock_token, time_frame, data):
     try:
@@ -169,10 +170,10 @@ def add_past_data_from_smart_api(stock_token, time_frame, data):
             counter = counter + 1
         execute_query(query[:-1])
         conn.commit()
-    except (Exception, psycopg2.Error) as error:
-        print(f"failed at add_past_data_from_smart_api method failed for stock_token : {stock_token} error message: ", error)
+    except (Exception) as error:
+        daily_logger.error(f"failed at add_past_data_from_smart_api method failed for stock_token : {stock_token} error message: " + str(error))
     finally:
-        print(f"successfully added data for stock : {stock_token} for time frame : {time_frame}")
+        daily_logger.info(f"successfully added data for stock : {stock_token} for time frame : {time_frame}")
 
 # this method is used for initializing highs and lows in the highlow_data table
 def initialize_high_low(stock_token, time_frame):
@@ -181,35 +182,41 @@ def initialize_high_low(stock_token, time_frame):
         start_time = datetime.min
         if index == 0:
             start_time = get_starttime_of_analysis(time_frame)
-        candles = fetch_candles(stock_token, time_frame, index = index, start_time=start_time)
-        candles = Utility.find_highs_and_lows(candles)
-        if len(candles) > 0 :
+        candles = fetch_candles(stock_token, time_frame, index = index-Numbers.FOUR, start_time=start_time)
+        highlow_candles = find_highs_and_lows(candles)
+        if len(highlow_candles) > 0 :
             query = "insert into highlow_data (index, token, time_stamp, open_price, high_price, low_price, close_price, high_low, tf) values"
-            for candle in candles:
+            for candle in highlow_candles:
                 query += f" ({candle.Index}, {stock_token}, '{candle.Date}', {candle.Open}, {candle.High}, {candle.Low}, {candle.Close}, '{candle.High_Low}', '{time_frame}'),"
             execute_query(query[:-1])
             conn.commit()
-            print("inserted ***********************************")
+            daily_logger.info("inserted highs and lows ***********************************")
             return 1
-        print("candles length is zero")
+        daily_logger.info("highlow_candles length is zero")
         return 0
-    except (Exception, psycopg2.Error) as error:
-        print("Failed at initialize_high_low method error message: ", error)
+    except (Exception) as error:
+        daily_logger.error("Failed at initialize_high_low method error message: " + str(error))
 
 # this method is used for analysis of highs and lows in the highlow_data table and form trendlines and store them 
 def get_trendLines(stock_token, time_frame):
     try:
         highs = fetch_highs(stock_token, time_frame)
         lows = fetch_lows(stock_token, time_frame)
-        candles = fetch_candles(stock_token = stock_token, time_frame = time_frame, index = min(highs[0].Index, lows[0].Index)-10)
-        priceData = Utility.PriceData(highs, lows, candles)
+        index = Numbers.MIN
+        if not (highs and lows):
+            return
+        if highs:
+            index = min(index, highs[0].Index)
+        if lows:
+            index = min(index, lows[0].Index)
+        candles = fetch_candles(stock_token = stock_token, time_frame = time_frame, index = index-Numbers.TEN)
+        priceData = PriceData(highs, lows, candles)
         trendlines = priceData.TrendlinesToDraw
         update_trendlines(stock_token, time_frame, trendlines)
-    except (Exception, psycopg2.Error) as error:
-        print("Failed at get trendlines method  error message : ", error)
+    except (Exception) as error:
+        daily_logger.error("Failed at get trendlines method  error message : " + str(error))
     finally:
-        print("generated trendlines successfully for ",
-              tokens[stock_token], " stock")
+        daily_logger.info("generated trendlines successfully for " + tokens[stock_token] + " stock")
         
 # this method updates trendlines in the database       
 def update_trendlines(stock_token, time_frame, trendlines):
@@ -235,11 +242,11 @@ def update_trendlines(stock_token, time_frame, trendlines):
                                 hl = '{trendline.HL}';"""
             execute_query(query)
             conn.commit()
-    except (Exception, psycopg2.Error) as error:
-        print("Failed at update_trendlines method  error message : ", error)
+    except (Exception) as error:
+        daily_logger.error("Failed at update_trendlines method  error message : " + str(error))
     finally:
-        print("updated trendlines successfully for ",
-              tokens[stock_token], " stock")
+        daily_logger.info("updated trendlines successfully for " + tokens[stock_token] + " stock")
+        
 
 
 # this method fetches high candles for given stock, for given time frame
@@ -254,10 +261,10 @@ def fetch_highs(stock_token, time_frame):
             candles.append(
                 Candle(0, row[1], row[2], row[3], row[4], row[5], row[6], row[7],row[8]))
         return candles
-    except (Exception, psycopg2.Error) as error:
-        print("Failed at fetch highs error mesage: ", error)
+    except (Exception) as error:
+        daily_logger.error("Failed at fetch highs error mesage: " + str(error))
     finally:
-        print("fetched highs successfully for ", tokens[stock_token], " stock")
+        daily_logger.info("fetched highs successfully for " + tokens[stock_token] + " stock")
 
 # this method fetches low candles for given stock, for given time frame
 def fetch_lows(stock_token, time_frame):
@@ -271,10 +278,10 @@ def fetch_lows(stock_token, time_frame):
             candles.append(
                 Candle(0, row[1], row[2], row[3], row[4], row[5], row[6], row[7], row[8]))
         return candles
-    except (Exception, psycopg2.Error) as error:
-        print("Failed at fetch highs error message: ", error)
+    except (Exception) as error:
+        daily_logger.error("Failed at fetch highs error message: " + str(error))
     finally:
-        print("fetched lows successfully for ", tokens[stock_token], " stock")
+        daily_logger.info("fetched lows successfully for " + tokens[stock_token] + " stock")
 
 # this method fetches all candles for given stock, for given time frame if limit is not specified 
 # if limit is provided then latest x no of candles are only returned
@@ -301,150 +308,10 @@ def fetch_candles(stock_token, time_frame, limit=0, index = 0, start_time = date
         if start_time != datetime.min:
             candles = [x for x in candles if datetime.strptime(x.Date,'%Y-%m-%d %H:%M') >= start_time]
         return candles
-    except (Exception, psycopg2.Error) as error:
-        print("Failed to fetch candles error message: ", error)
+    except (Exception) as error:
+        daily_logger.error("Failed to fetch candles error message: " + str(error))
     finally:
-        print("fetched candles successfully for ",
-              tokens[stock_token], " stock for ", time_frame, " timeframe")
-
-# we dont analyse all the data for all time frames, we limit out data for analysis hence 
-# this method provides the start time of the analysis based on the time frame
-def get_starttime_of_analysis(time_frame):
-    match time_frame:
-        case 'FIFTEEN_MINUTE':
-            return datetime.today()-timedelta(days=31)
-        case 'THIRTY_MINUTE':
-            return datetime.today()-timedelta(days=61)
-        case 'ONE_HOUR':
-            return datetime.today()-timedelta(weeks=14)
-        case 'TWO_HOUR':
-            return datetime.today()-timedelta(weeks=28)
-        case 'FOUR_HOUR':
-            return datetime(date.today().year-1, date.today().month, date.today().day)
-        case 'ONE_DAY':
-            return datetime(date.today().year-2, date.today().month, date.today().day)
-        case 'ONE_WEEK':
-            return datetime(date.today().year-20, date.today().month, date.today().day)
-        case 'ONE_MONTH':
-            return datetime(date.today().year-20, date.today().month, date.today().day)
-        case default:
-            return datetime.today()
-
-# we have stored fifteen minute data in fifteentf_data table in historicdata data base
-# we have stored daily data in dailytf_data table in historicdata data base
-# all the data up to four hour is created using the fifteentf_data table 
-# all the data above one day is created using the dailytf_data table 
-# this method provides which data table to use based on time frame
-def get_table(time_frame):
-    match time_frame:
-        case 'FIFTEEN_MINUTE':
-            return "fifteentf_data"
-        case 'THIRTY_MINUTE':
-            return "fifteentf_data"
-        case 'ONE_HOUR':
-            return "fifteentf_data"
-        case 'TWO_HOUR':
-            return "fifteentf_data"
-        case 'FOUR_HOUR':
-            return "fifteentf_data"
-        case 'ONE_DAY':
-            return "dailytf_data"
-        case 'ONE_WEEK':
-            return "dailytf_data"
-        case 'ONE_MONTH':
-            return "dailytf_data"
-        case default:
-            return "dailytf_data"
-
-# after fetching data from data base we convert it into required time frame using this method
-# it uses pandas resample function with offset and dropna function to remove NAN values
-def convert_data_timeframe(time_frame, rows):
-    try:
-        off_set = get_offset(time_frame)
-        df = pd.DataFrame(rows, columns=['id', 'index', 'token', 'time_stamp',
-                        'open_price', 'high_price', 'low_price', 'close_price'])
-        df['Date'] = df['time_stamp']
-        df = df.set_index('Date')
-        if time_frame == "ONE_DAY" or time_frame == "FIFTEEN_MINUTE":
-            return df
-        df = df.resample(convert_timeframe(time_frame), offset=off_set).apply(OHLC)
-        return df.dropna()
-    except (Exception, psycopg2.Error) as error:
-        print("failed at convert_data_timeframe method error mesage: ",error)
-
-# method provides offset based on time frame 
-# off set of 9 hours 15 minutes is provided for time frames below one day
-# off set of 0 hours 0 minutes is provided for time frames above four hours
-def get_offset(time_frame):
-    match time_frame:
-        case 'FIFTEEN_MINUTE':
-            return '9h15min'
-        case 'THIRTY_MINUTE':
-            return '9h15min'
-        case 'ONE_HOUR':
-            return '9h15min'
-        case 'TWO_HOUR':
-            return '9h15min'
-        case 'FOUR_HOUR':
-            return '9h15min'
-        case 'ONE_DAY':
-            return '0h0min'
-        case 'ONE_WEEK':
-            return '0h0min'
-        case 'ONE_MONTH':
-            return '0h0min'
-        case default:
-            return '0h0min'
-
-# This method takes api timeframe example : "ONE_DAY", "FIFTEEN_MINUTE"
-# returns pandas timeframe example : "15T", "1H", "D", "W", "M"
-def convert_timeframe(time_frame):
-    match time_frame:
-        case 'FIFTEEN_MINUTE':
-            return "15T"
-        case 'THIRTY_MINUTE':
-            return "30T"
-        case 'ONE_HOUR':
-            return "1H"
-        case 'TWO_HOUR':
-            return "2H"
-        case 'FOUR_HOUR':
-            return "4H"
-        case 'ONE_DAY':
-            return "D"
-        case 'ONE_WEEK':
-            return "W"
-        case 'ONE_MONTH':
-            return "M"
-        case default:
-            return "D"
-
-# this method returns no of minutes in a time frame
-def no_of_minutes(time_frame):
-    match time_frame:
-        case 'FIFTEEN_MINUTE':
-            return 15
-        case 'THIRTY_MINUTE':
-            return 30
-        case 'ONE_HOUR':
-            return 60
-        case 'TWO_HOUR':
-            return 120
-        case 'FOUR_HOUR':
-            return 240
-        case default:
-            return 0
-
-# this method converts ltp  data to pandas ohlc data
-def convert_ltp_to_ohlc(time_frame, rows):
-    try:
-        df = pd.DataFrame(rows, columns=['id', 'token', 'time_stamp', 'ltp'])
-        df['Date'] = df['time_stamp']
-        df = df.set_index('Date')
-        df = df['ltp'].resample(time_frame).ohlc(_method='ohlc')
-        return df
-    except (Exception, psycopg2.Error) as error:
-        print("failed at convert_data_timeframe method error mesage: ",error)
+        daily_logger.info("fetched candles successfully for " + tokens[stock_token] + " stock for " + time_frame + " timeframe")
 
 # this method's functionality is to get latest candle's index for given stock and give time_frame
 def get_latest_index(stock_token, time_frame):
@@ -456,8 +323,8 @@ def get_latest_index(stock_token, time_frame):
         if rows[0][0] == None:
              return 0
         return rows[0][0]
-    except (Exception, psycopg2.Error) as error:
-        print(f"failed at get_latest_index method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)
+    except (Exception) as error:
+        daily_logger.error(f"failed at get_latest_index method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: " + str(error))
 
 # this method's functionality is to get latest candle's date for given stock and give time_frame
 # used when fetching latest candles data
@@ -470,8 +337,8 @@ def get_latest_date(stock_token, time_frame):
         if rows[0][0] == None:
              return 0
         return rows[0][0]
-    except (Exception, psycopg2.Error) as error:
-        print(f"failed at get_latest_date method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)
+    except (Exception) as error:
+        daily_logger.error(f"failed at get_latest_date method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: " + str(error))
 
 # this method's functionality is to get latest high/low candle's index for given stock and give time_frame
 def get_latest_highlow_index(stock_token, time_frame):
@@ -482,8 +349,8 @@ def get_latest_highlow_index(stock_token, time_frame):
         if rows[0][0] == None:
              return 0
         return rows[0][0]
-    except (Exception, psycopg2.Error) as error:
-        print(f"failed at get_latest_index method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)   
+    except (Exception) as error:
+        daily_logger.error(f"failed at get_latest_index method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: " + str(error))
 
 # this method's functionality is to initialize trendline_data table with initial values
 def initialize_trendline_data_table():
@@ -511,19 +378,10 @@ def initialize_trendline_data_table():
                              ({stock_token}, '{time_frame}',{0},{-1},'{date_str}', '{date_str}', 'L', {0},{0},{0}),"""
         execute_query(query[:-1])
         conn.commit()
-    except (Exception, psycopg2.Error) as error:
-        print(f"failed at initialize_trendline_data_table method error mesage: ",error) 
+    except (Exception) as error:
+        print(f"failed at initialize_trendline_data_table method error mesage: " + str(error))
     finally:
         print("succesfully initialized trendline_data table")
-
-#  this is a one time use method which initializes trendline generator table
-def initialize_trendline_generator_table():
-    query = "INSERT INTO trendline_generator (token, tf, run) values "
-    for stock_token in tokens:
-        for time_frame in time_frames:
-            query += f"({stock_token}, '{time_frame}', False),"
-    execute_query(query[:-1])
-    conn.commit()
 
 # this method increments the index of the trendlines for given timeframe
 # used repetatively for every new candle formed in any time frame in real time
@@ -531,13 +389,13 @@ def increment_index(time_frame):
     try:
         query = f"""UPDATE trendline_data
                     SET index = index +1
-                    WHERE tf= {time_frame}"""
+                    WHERE tf= '{time_frame}'"""
         execute_query(query)
         conn.commit()
-    except (Exception, psycopg2.Error) as error:
-        print("failed at increment_index method error mesage: ",error)
+    except (Exception) as error:
+        trades_executer_logger.error("Failed at increment_index method error mesage: " + str(error))
     finally:
-        print(f"succesfully incremented trendline_data table index for given time_frame {time_frame}")
+        daily_logger.info(f"succesfully incremented trendline_data table index for given time_frame {time_frame}")
   
 #   this is a one time use method which initializes stock details table
 def initialize_stocks_details_table():
@@ -549,7 +407,7 @@ def initialize_stocks_details_table():
             query += f"({token}, '{tokens[token]}', ''),"
         execute_query(query[:-1])
         conn.commit()
-    except (Exception, psycopg2.Error) as error:
+    except (Exception) as error:
         print("failed at initialize_stocks_details_table method error mesage: ",error)
 
 
@@ -559,25 +417,27 @@ def execute_trades_on_candle_close(api, time_frame, start_time):
         end_time = start_time + timedelta(minutes=no_of_minutes(time_frame))
         trades = get_trades(time_frame, start_time, end_time)
         for trade in trades:
-            if ( trade[13] > trade[7]*trade[9]+trade[8] ):
+            if ( trade[13] > trade[7] * trade[9] + trade[8] ):
                 api.place_order(
                     variety="ROBO",
-                    tradingsymbol=tokens[trade[0]]+"-EQ",
+                    tradingsymbol=tokens[str(trade[0])]+"-EQ",
                     symboltoken=trade[0],
                     transactiontype= "BUY" if trade[2] == "H" else "SELL",
-                    ordertype="MARKET",
-                    producttype="BO",
+                    ordertype="LIMIT",
+                    producttype="INTRADAY",
                     duration="DAY",
-                    price=543,
-                    squareoff=trade[4],
-                    stoploss=trade[5],
+                    price=trade[13],
+                    squareoff=abs(trade[4]-trade[13]),
+                    stoploss=abs(trade[13]-trade[5]),
                     quantity= trade[6]
                 )
-                trades_executed.append(trade)
+                trades_executed.append(trade[0])
+        for trade in trades_executed:
+            trades_executer_logger.info(f"trade executed {trade}")
         increment_index(time_frame)
         update_trades(trades_executed)
-    except (Exception, psycopg2.Error) as error:
-        print("failed at execute_trades method error mesage: ",error)
+    except (Exception) as error:
+        trades_executer_logger.error("Failed at execute_trades method error mesage: " + str(error))
 
 def update_trades(orders_placed):
     try:
@@ -587,12 +447,12 @@ def update_trades(orders_placed):
                     set status = 'DONE'
                     Where token in ("""
             for token in orders_placed:
-                query += f" {token}, "
-            query = query[:-1]+")"
+                query += f" {token},"
+            query = query[:-1]+");"
             execute_query(query)
             conn.commit()
-    except (Exception, psycopg2.Error) as error:
-        print("failed at get_trades method error mesage: ",error)
+    except (Exception) as error:
+        trades_executer_logger.error("Failed at get_trades method error mesage: " + str(error))
 
 def get_trades(time_frame, start_time, end_time):
     try:
@@ -603,43 +463,18 @@ def get_trades(time_frame, start_time, end_time):
         ON trades_data.token = trendline_data.token and trades_data.tf = trendline_data.tf and trades_data.direction = trendline_data.hl
         INNER JOIN
             (
-                SELECT
-                        t1.symbol_token,
-                        t2.open AS open,
-                        MAX(t1.ltp) AS high,
-                        MIN(t1.ltp) AS low,
-                        t3.close AS close
-                    FROM
-                        ticks_data as t1
-                    LEFT JOIN
-                        (
-                            SELECT
-                                symbol_token,
-                                MIN(ltp) AS open
-                            FROM
-                                ticks_data
-                            WHERE
-                                time_stamp >= '{start_time.strftime('%Y-%m-%d %H:%M:%S')}'
-                            GROUP BY
-                                symbol_token
-                        ) as t2 ON t1.symbol_token = t2.symbol_token
-                    LEFT JOIN
-                        (
-                            SELECT
-                                symbol_token,
-                                MAX(ltp) AS close
-                            FROM
-                                ticks_data
-                            WHERE
-                                time_stamp <= '{end_time.strftime('%Y-%m-%d %H:%M:%S')}'
-                            GROUP BY
-                                symbol_token
-                        ) as t3 ON t1.symbol_token = t3.symbol_token
-                    WHERE
-                        t1.time_stamp >= '{start_time.strftime('%Y-%m-%d %H:%M:%S')}'
-                        AND t1.time_stamp <= '{end_time.strftime('%Y-%m-%d %H:%M:%S')}'
-                    GROUP BY
-                        t1.symbol_token, t2.open, t3.close
+               SELECT DISTINCT
+                    symbol_token,
+                    FIRST_VALUE(ltp) OVER w AS open,
+                    MAX(ltp) OVER w AS high,
+                    MIN(ltp) OVER w AS low,
+                    LAST_VALUE(ltp) OVER w AS close
+                FROM
+                    ticks_data
+                WHERE
+                    time_stamp >= '{start_time.strftime('%Y-%m-%d %H:%M:%S')}'
+                    AND time_stamp <= '{end_time.strftime('%Y-%m-%d %H:%M:%S')}'
+                WINDOW w AS (PARTITION BY symbol_token ORDER BY time_stamp ROWS BETWEEN UNBOUNDED preceding AND UNBOUNDED FOLLOWING)
             ) as ohlc_data
         ON trades_data.token = ohlc_data.symbol_token
         where trades_data.status = 'TODO' and trades_data.tf = '{time_frame}' and trades_data.entry_condition like '%Close%';
@@ -647,8 +482,8 @@ def get_trades(time_frame, start_time, end_time):
         execute_query(query)
         rows = cur.fetchall()
         return rows
-    except (Exception, psycopg2.Error) as error:
-        print("failed at get_trades method error mesage: ",error)
+    except (Exception) as error:
+        trades_executer_logger.error("Failed at get_trades method error mesage: " + str(error))
 
 
 
@@ -677,7 +512,7 @@ def api_get_stock_data(stock_token, time_frame):
                 })
         data  = {"stockData" : data}
         return data
-    except (Exception, psycopg2.Error) as error:
+    except (Exception) as error:
         print(f"failed while responding api call in method api_get_stock_data for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)
 
 # this method adds a new trade data
@@ -704,7 +539,7 @@ def add_trade_data(tradedetails):
         """
         execute_query(query)
         conn.commit()
-    except (Exception, psycopg2.Error) as error:
+    except (Exception) as error:
         print(f"failed while responding api call in method add_trade_data for stock_token: {tradedetails['stockToken']} and time_frame : {tradedetails['timeFrame']} error mesage: ",error)
     
 # this method gets all stock details
@@ -712,16 +547,14 @@ def get_stock_details():
     query = "select * from stock_details;"
     execute_query(query)
     rows = cur.fetchall()
-    stock_details = {}
+    stock_details = []
     for row in rows:
-        stock_details[row[1]]=(
-            {
-            "name":row[2],
-            "category": row[3]}
-        )
+        stock_details.append({
+        "token": row[1],
+        "name":row[2],
+        "category": row[3]})
     # print(stock_details)
     # print(stock_details[474]["name"])
-    print(stock_details)
     return stock_details
 
 # this method provides trendline data, for given stock token, for given time frame, for plotting in UI
@@ -748,11 +581,11 @@ def api_get_trendline_data(stock_token, time_frame):
                 hl += row[7]
         data  = {"trendlineData" : data, "linesData":hl}
         return data
-    except (Exception, psycopg2.Error) as error:
+    except (Exception) as error:
         print(f"failed while responding api call in method api_get_trendline_data for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)
 
 # this method gets all the trades data 
-def get_trades():
+def get_all_trades():
     query = """SELECT trades_data.id, stock_details.name, trades_data.tf, trades_data.status, trades_data.direction, trades_data.quantity, trades_data.bp, trades_data.sp, trades_data.tp, trades_data.sl,trades_data.pl 
                 FROM stock_details 
                 INNER JOIN trades_data  
