@@ -1,10 +1,20 @@
 import React, { useContext, useState, useEffect } from "react";
 import AxiosAPI from "../API/AxiosAPI";
 import { Context } from "../Context/AppContextProvider";
+import StockListFilter from "./StockListFilter";
 
 export default function StockList() {
-  const { setStockToken, stockList, setStockList, stockToken } =
-    useContext(Context);
+  const {
+    setStockToken,
+    stockDict,
+    setStockDict,
+    stockList,
+    setStockList,
+    stockToken,
+    timeFrame,
+    stockListCategory,
+    stockListSort,
+  } = useContext(Context);
   const [divHeight, setDivHeight] = useState(window.innerHeight - 100);
 
   useEffect(() => {
@@ -24,12 +34,13 @@ export default function StockList() {
     overflow: "auto",
   };
 
-  const fetchAllStocksData = async () => {
-    await AxiosAPI.get("/stocklist").then((res) => {
-      // console.log(res);
-      // console.log(typeof res.data); // Output should be "object" for an array
-      // console.log(Array.isArray(res.data)); // Output should be true if stockList is an array
-      setStockList(res.data);
+  const fetchStockList = async () => {
+    await AxiosAPI.get(
+      `/stocklist/${timeFrame}/${stockListCategory}/${stockListSort}`
+    ).then((res) => {
+      console.log(res.data);
+      setStockList(res.data.tokensList);
+      setStockDict(res.data.stocksDict);
     });
   };
 
@@ -38,48 +49,35 @@ export default function StockList() {
   };
 
   useEffect(() => {
-    fetchAllStocksData();
-  }, []);
+    fetchStockList();
+  }, [timeFrame, stockListCategory, stockListSort]);
 
   return (
-    <div className="col" style={divStyle}>
-      {Object.keys(stockList).map((key) => {
-        return (
-          <div
-            id={key}
-            onClick={() => handleOnClickStock(key)}
-            className={
-              key === stockToken ? "row px-3 border border-primary" : "row px-3"
-            }
-          >
-            <div>
-              <div className="float-start">
-                <span className=" m-1">{stockList[key]}</span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-      {/* {stockList &&
-        stockList.map((item) => {
-          return (
-            <div
-              id={item.stockToken}
-              onClick={() => handleOnClickStock(item.token)}
-              className={
-                item.token === stockToken
-                  ? "row px-3 border border-primary"
-                  : "row px-3"
-              }
-            >
-              <div>
-                <div className="float-start">
-                  <span className=" m-1">{stockList[item.token]}</span>
+    <div>
+      <StockListFilter />
+
+      <div className="col" style={divStyle}>
+        {stockList &&
+          stockList.map((key) => {
+            return (
+              <div
+                id={key}
+                onClick={() => handleOnClickStock(key)}
+                className={
+                  key === stockToken
+                    ? "row px-3 border border-primary"
+                    : "row px-3"
+                }
+              >
+                <div>
+                  <div className="float-start">
+                    <span className=" m-1">{stockDict[key]}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })} */}
+            );
+          })}
+      </div>
     </div>
   );
 }

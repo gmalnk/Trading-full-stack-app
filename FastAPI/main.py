@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from FastAPI import PgConnection
-from FastAPI.Constants import tokens
+from FastAPI.Constants import ALL_TOKENS
 
 app = FastAPI()
 
@@ -24,14 +24,14 @@ app.add_middleware(
 def get_startup():
     return {"hello" : "world! you are in the fast api home page"}
 
-@app.get("/stocklist")
-def get_stocklist():
-    return tokens
-    # return   PgConnection.get_stock_details()
+# @app.get("/stocklist")
+# def get_stocklist():
+#     return ALL_TOKENS
+#     # return   PgConnection.get_stock_details()
 
-@app.get("/newstocklist")
-def get_stocklist():
-    return   PgConnection.get_stock_details()
+@app.get("/stocklist/{timeFrame}/{stockListCategory}/{stockListSort}")
+def get_stocklist(timeFrame:str, stockListCategory:str, stockListSort:str):
+    return  PgConnection.get_stock_details(timeFrame, stockListCategory, stockListSort)
     
 @app.put("/stocklist")
 def  update_stocklist(stockDetails:dict):

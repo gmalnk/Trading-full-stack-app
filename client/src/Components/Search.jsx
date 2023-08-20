@@ -2,9 +2,10 @@ import React, { useContext, useEffect, useState } from "react";
 import { Context } from "../Context/AppContextProvider";
 
 export default function Search() {
-  const { stockList, setStockToken, setSearchActive } = useContext(Context);
-  const stocks = Object.values(stockList).sort();
-  const keys = Object.keys(stockList);
+  const { stockList, setStockToken, setSearchActive, stockDict } =
+    useContext(Context);
+  const stocks = Object.values(stockDict).sort();
+  const keys = Object.keys(stockDict);
   const [searchList, setSearchList] = useState([]);
   const [search, setSearch] = useState("");
 
@@ -16,7 +17,7 @@ export default function Search() {
 
   const handleOnClickSearchItem = (value) => {
     for (let i = 0; i <= stocks.length; i++) {
-      if (stockList[keys[i]] === value) {
+      if (stockDict[keys[i]] === value) {
         console.log(keys[i]);
         setStockToken(keys[i]);
         setSearchActive(false);
@@ -69,7 +70,8 @@ export default function Search() {
             <p
               key={value}
               className="p-1 m-0 search-item"
-              onClick={() => handleOnClickSearchItem(value)}>
+              onClick={() => handleOnClickSearchItem(value)}
+            >
               {value}
             </p>
           );

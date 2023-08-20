@@ -34,6 +34,7 @@ exp.py
 exp.jsx
 fast_api_lib_if.py
 trades_executer.py
+tradeline_property.py
 version
 daily_run.py
 /log

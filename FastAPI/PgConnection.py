@@ -115,10 +115,10 @@ def add_past_data_from_yfinance(stock_token, data):
 
 def add_past_data_from_yfinance_once(data):
     try:
-        for token in tokens:
-            query = f"INSERT INTO {dailytf_table} (token, time_stamp, open_price, high_price, low_price, close_price, index) values "
+        for token in ALL_TOKENS:
+            query = f"INSERT INTO {DAILY_DATA_TABLE} (token, time_stamp, open_price, high_price, low_price, close_price, index) values "
             counter = 1
-            symbol = tokens[token]+".NS"
+            symbol = ALL_TOKENS[token]+".NS"
             for i in data.index:
                 date = i.strftime("%Y-%m-%d %H:%M:%S")
                 if math.isnan(data[(symbol, 'Open')][i]) or math.isnan(data[(symbol, 'High')][i]) or math.isnan(data[(symbol, 'Low')][i]) or math.isnan(data[(symbol, 'Close')][i]):
@@ -139,10 +139,10 @@ def add_latest_data_from_yfinance_once(data):
         if data.empty:
             daily_logger.info("data provided to add_latest_data_from_yfinance_once is empty")
             return
-        query = f"INSERT INTO {dailytf_table} (token, time_stamp, open_price, high_price, low_price, close_price, index) values "
-        for token in tokens:
+        query = f"INSERT INTO {DAILY_DATA_TABLE} (token, time_stamp, open_price, high_price, low_price, close_price, index) values "
+        for token in ALL_TOKENS:
             counter = get_latest_index(token, "ONE_DAY") + 1
-            symbol = tokens[token]+".NS"
+            symbol = ALL_TOKENS[token]+".NS"
             for i in data.index:
                 date = i.strftime("%Y-%m-%d %H:%M:%S")
                 if math.isnan(data[(symbol, 'Open')][i]) or math.isnan(data[(symbol, 'High')][i]) or math.isnan(data[(symbol, 'Low')][i]) or math.isnan(data[(symbol, 'Close')][i]):
@@ -176,13 +176,14 @@ def add_past_data_from_smart_api(stock_token, time_frame, data):
         daily_logger.info(f"successfully added data for stock : {stock_token} for time frame : {time_frame}")
 
 # this method is used for initializing highs and lows in the highlow_data table
-def initialize_high_low(stock_token, time_frame):
+def initialize_high_low(data):
     try:
+        stock_token, time_frame = data
         index = get_latest_highlow_index(stock_token, time_frame)
         start_time = datetime.min
         if index == 0:
             start_time = get_starttime_of_analysis(time_frame)
-        candles = fetch_candles(stock_token, time_frame, index = index-Numbers.FOUR, start_time=start_time)
+        candles = fetch_candles(stock_token, time_frame, index = index-FOUR, start_time=start_time)
         highlow_candles = find_highs_and_lows(candles)
         if len(highlow_candles) > 0 :
             query = "insert into highlow_data (index, token, time_stamp, open_price, high_price, low_price, close_price, high_low, tf) values"
@@ -198,25 +199,26 @@ def initialize_high_low(stock_token, time_frame):
         daily_logger.error("Failed at initialize_high_low method error message: " + str(error))
 
 # this method is used for analysis of highs and lows in the highlow_data table and form trendlines and store them 
-def get_trendLines(stock_token, time_frame):
+def get_trendLines(data):
     try:
+        stock_token, time_frame = data
         highs = fetch_highs(stock_token, time_frame)
         lows = fetch_lows(stock_token, time_frame)
-        index = Numbers.MIN
+        index = MAX_NUM
         if not (highs and lows):
             return
         if highs:
             index = min(index, highs[0].Index)
         if lows:
             index = min(index, lows[0].Index)
-        candles = fetch_candles(stock_token = stock_token, time_frame = time_frame, index = index-Numbers.TEN)
+        candles = fetch_candles(stock_token = stock_token, time_frame = time_frame, index = index-TEN)
         priceData = PriceData(highs, lows, candles)
         trendlines = priceData.TrendlinesToDraw
         update_trendlines(stock_token, time_frame, trendlines)
     except (Exception) as error:
         daily_logger.error("Failed at get trendlines method  error message : " + str(error))
     finally:
-        daily_logger.info("generated trendlines successfully for " + tokens[stock_token] + " stock")
+        daily_logger.info("generated trendlines successfully for " + ALL_TOKENS[stock_token] + " stock")
         
 # this method updates trendlines in the database       
 def update_trendlines(stock_token, time_frame, trendlines):
@@ -245,7 +247,7 @@ def update_trendlines(stock_token, time_frame, trendlines):
     except (Exception) as error:
         daily_logger.error("Failed at update_trendlines method  error message : " + str(error))
     finally:
-        daily_logger.info("updated trendlines successfully for " + tokens[stock_token] + " stock")
+        daily_logger.info("updated trendlines successfully for " + ALL_TOKENS[stock_token] + " stock")
         
 
 
@@ -264,7 +266,7 @@ def fetch_highs(stock_token, time_frame):
     except (Exception) as error:
         daily_logger.error("Failed at fetch highs error mesage: " + str(error))
     finally:
-        daily_logger.info("fetched highs successfully for " + tokens[stock_token] + " stock")
+        daily_logger.info("fetched highs successfully for " + ALL_TOKENS[stock_token] + " stock")
 
 # this method fetches low candles for given stock, for given time frame
 def fetch_lows(stock_token, time_frame):
@@ -281,7 +283,7 @@ def fetch_lows(stock_token, time_frame):
     except (Exception) as error:
         daily_logger.error("Failed at fetch highs error message: " + str(error))
     finally:
-        daily_logger.info("fetched lows successfully for " + tokens[stock_token] + " stock")
+        daily_logger.info("fetched lows successfully for " + ALL_TOKENS[stock_token] + " stock")
 
 # this method fetches all candles for given stock, for given time frame if limit is not specified 
 # if limit is provided then latest x no of candles are only returned
@@ -311,7 +313,7 @@ def fetch_candles(stock_token, time_frame, limit=0, index = 0, start_time = date
     except (Exception) as error:
         daily_logger.error("Failed to fetch candles error message: " + str(error))
     finally:
-        daily_logger.info("fetched candles successfully for " + tokens[stock_token] + " stock for " + time_frame + " timeframe")
+        daily_logger.info("fetched candles successfully for " + ALL_TOKENS[stock_token] + " stock for " + time_frame + " timeframe")
 
 # this method's functionality is to get latest candle's index for given stock and give time_frame
 def get_latest_index(stock_token, time_frame):
@@ -372,8 +374,8 @@ def initialize_trendline_data_table():
         # execute_query(query)
         query = 'INSERT INTO trendline_data (token, tf, slope, intercept, startdate, enddate, hl, index1, index2, index) values '
         date_str = date.today().strftime('%Y-%m-%d %H:%M')
-        for stock_token in tokens:
-            for time_frame in time_frames:
+        for stock_token in ALL_TOKENS:
+            for time_frame in TIME_FRAMES:
                 query += f"""({stock_token}, '{time_frame}',{0},{-1},'{date_str}', '{date_str}', 'H', {0},{0},{0}), 
                              ({stock_token}, '{time_frame}',{0},{-1},'{date_str}', '{date_str}', 'L', {0},{0},{0}),"""
         execute_query(query[:-1])
@@ -403,8 +405,8 @@ def initialize_stocks_details_table():
         query = """INSERT INTO stock_details
         (token, name, category) values
         """
-        for token in tokens:
-            query += f"({token}, '{tokens[token]}', ''),"
+        for token in ALL_TOKENS:
+            query += f"({token}, '{ALL_TOKENS[token]}', ''),"
         execute_query(query[:-1])
         conn.commit()
     except (Exception) as error:
@@ -420,7 +422,7 @@ def execute_trades_on_candle_close(api, time_frame, start_time):
             if ( trade[13] > trade[7] * trade[9] + trade[8] ):
                 api.place_order(
                     variety="ROBO",
-                    tradingsymbol=tokens[str(trade[0])]+"-EQ",
+                    tradingsymbol=ALL_TOKENS[str(trade[0])]+"-EQ",
                     symboltoken=trade[0],
                     transactiontype= "BUY" if trade[2] == "H" else "SELL",
                     ordertype="LIMIT",
@@ -500,8 +502,8 @@ def api_get_stock_data(stock_token, time_frame):
         cur.execute(query)
         rows = cur.fetchall()
         rows = convert_data_timeframe(time_frame, rows)
-        # if rows.empty :
-        #     return {"stockData" : data}
+        if rows.empty :
+            return {"stockData" : data}
         for i in rows.index:
             data.append({
                 "time": int(rows['time_stamp'][i].replace(tzinfo=timezone.utc).timestamp()),
@@ -543,19 +545,32 @@ def add_trade_data(tradedetails):
         print(f"failed while responding api call in method add_trade_data for stock_token: {tradedetails['stockToken']} and time_frame : {tradedetails['timeFrame']} error mesage: ",error)
     
 # this method gets all stock details
-def get_stock_details():
-    query = "select * from stock_details;"
+def get_stock_details(timeFrame:str, stockListCategory:str, stockListSort:str):
+    tokens = get_tokens(stockListCategory)
+    if stockListSort == "cap":
+        return {'stocksDict' :ALL_TOKENS, 'tokensList':tokens}
+    if stockListSort  == "alphabets":
+        tokens.sort(key=lambda x: ALL_TOKENS[x])
+    else:
+        tokens = get_tokens_ordered_Based_on_connects(timeFrame, stockListSort, tokens)
+    return {'stocksDict' :ALL_TOKENS, 'tokensList':tokens}
+
+def get_tokens_ordered_Based_on_connects(timeFrame, HL, tokens):
+    query =  f"""select
+                    trendline_data.token
+                from trendline_data
+                    inner join stock_details
+                on stock_details.token = trendline_data.token 
+                where trendline_data.tf= '{timeFrame}' and trendline_data.connects > 2 and trendline_data.hl = '{HL}' 
+                order by trendline_data.connects desc;
+            """
     execute_query(query)
+    result = []
     rows = cur.fetchall()
-    stock_details = []
-    for row in rows:
-        stock_details.append({
-        "token": row[1],
-        "name":row[2],
-        "category": row[3]})
-    # print(stock_details)
-    # print(stock_details[474]["name"])
-    return stock_details
+    for x in rows:
+        if str(x[0]) in tokens:
+            result.append(x[0])
+    return result
 
 # this method provides trendline data, for given stock token, for given time frame, for plotting in UI
 def api_get_trendline_data(stock_token, time_frame):

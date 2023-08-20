@@ -25,11 +25,13 @@ export default function ChartComponent() {
       `/trendlines/${stockToken}/${timeFrame}`
     );
     const response = await AxiosAPI.get(`/${stockToken}/${timeFrame}`);
-    setStockData({
-      candleData: response.data.stockData,
-      trendlineData: response1.data.trendlineData,
-    });
-    setLinesData(response1.data.linesData);
+    response.data.stockData &&
+      response1.data.trendlineData &&
+      setStockData({
+        candleData: response.data.stockData,
+        trendlineData: response1.data.trendlineData,
+      });
+    response1.data.linesData && setLinesData(response1.data.linesData);
   };
 
   useEffect(() => {
@@ -94,7 +96,7 @@ export default function ChartComponent() {
     }
     const candleSeries = chart.addCandlestickSeries(candleoptions);
     // console.log(stockData)
-    candleSeries.setData(stockData.candleData);
+    candleSeries.setData(stockData.candleData && stockData.candleData);
 
     window.addEventListener("resize", handleResize);
 

@@ -7,9 +7,12 @@ export default function AppContextProvider(props) {
   const [showTrendline, setShowTrendline] = useState(true);
   const [timeFrame, setTimeFrame] = useState("ONE_HOUR");
   const [stockToken, setStockToken] = useState(474);
-  const [stockList, setStockList] = useState({});
+  const [stockDict, setStockDict] = useState({});
+  const [stockList, setStockList] = useState([]);
   const [tradeBoxActive, setTradeBoxActive] = useState(false);
   const [linesData, setLinesData] = useState("");
+  const [stockListCategory, setStockListCategory] = useState("all");
+  const [stockListSort, setStockListSort] = useState("alphabets");
 
   return (
     <Context.Provider
@@ -20,6 +23,8 @@ export default function AppContextProvider(props) {
         setTimeFrame,
         stockToken,
         setStockToken,
+        stockDict,
+        setStockDict,
         stockList,
         setStockList,
         searchActive,
@@ -28,6 +33,10 @@ export default function AppContextProvider(props) {
         setTradeBoxActive,
         linesData,
         setLinesData,
+        stockListCategory,
+        setStockListCategory,
+        stockListSort,
+        setStockListSort,
       }}
     >
       {props.children}
