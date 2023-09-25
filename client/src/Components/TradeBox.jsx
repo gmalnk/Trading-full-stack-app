@@ -1,6 +1,5 @@
-import React, { useContext, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import TradeForm from "./TradeForm";
-import { Context } from "../Context/AppContextProvider";
 
 const TradeBox = () => {
   const [position, setPosition] = useState({ x: 200, y: 100 });

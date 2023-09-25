@@ -238,7 +238,8 @@ def update_trendlines(stock_token, time_frame, trendlines):
                                 index1 = '{trendline.Candles[0].Index}',
                                 index2 = '{trendline.Candles[-1].Index}',
                                 index = {latest_index},
-                                connects = {trendline.NoOfPoints}
+                                connects = {trendline.Connects},
+                                totalconnects = {trendline.TotalConnects}
                             WHERE token = {stock_token} AND
                                 tf = '{time_frame}' AND
                                 hl = '{trendline.HL}';"""
@@ -369,15 +370,17 @@ def initialize_trendline_data_table():
         #             hl varchar(2) NOT NULL,
         #             index1 INT NOT NULL,
         #             index2 INT NOT NULL,
-        #             index Int Not Null
+        #             index Int Not Null,
+        #             connects Int Not Null,
+        #             totalconnects Int Not Null
         #         );'''
         # execute_query(query)
-        query = 'INSERT INTO trendline_data (token, tf, slope, intercept, startdate, enddate, hl, index1, index2, index) values '
+        query = 'INSERT INTO trendline_data (token, tf, slope, intercept, startdate, enddate, hl, index1, index2, index, connects, totalconnects) values '
         date_str = date.today().strftime('%Y-%m-%d %H:%M')
         for stock_token in ALL_TOKENS:
             for time_frame in TIME_FRAMES:
-                query += f"""({stock_token}, '{time_frame}',{0},{-1},'{date_str}', '{date_str}', 'H', {0},{0},{0}), 
-                             ({stock_token}, '{time_frame}',{0},{-1},'{date_str}', '{date_str}', 'L', {0},{0},{0}),"""
+                query += f"""({stock_token}, '{time_frame}',{0},{-1},'{date_str}', '{date_str}', 'H', {0},{0},{0},{0},{0}), 
+                             ({stock_token}, '{time_frame}',{0},{-1},'{date_str}', '{date_str}', 'L', {0},{0},{0},{0},{0}),"""
         execute_query(query[:-1])
         conn.commit()
     except (Exception) as error:
@@ -418,8 +421,23 @@ def execute_trades_on_candle_close(api, time_frame, start_time):
         trades_executed = []
         end_time = start_time + timedelta(minutes=no_of_minutes(time_frame))
         trades = get_trades(time_frame, start_time, end_time)
+        execution_time_frame = get_TimeFrame(time_frame)
+        # token = trade[0]
+        # tf = trade[1]
+        # direction = trade[2]
+        # entry_condition = trade[3]
+        # tp = trade[4]
+        # sl = trade[5]
+        # quantity = trade[6]
+        # slope = trade[7]
+        # intercept = trade[8]
+        # index = trdae[9]
+        # open = trade[10]
+        # high = trade[11]
+        # low = trade[12]
+        # close = trade[13]
         for trade in trades:
-            if ( trade[13] > trade[7] * trade[9] + trade[8] ):
+            if (trade_criteria(trade, execution_time_frame)):
                 api.place_order(
                     variety="ROBO",
                     tradingsymbol=ALL_TOKENS[str(trade[0])]+"-EQ",
@@ -441,6 +459,27 @@ def execute_trades_on_candle_close(api, time_frame, start_time):
     except (Exception) as error:
         trades_executer_logger.error("Failed at execute_trades method error mesage: " + str(error))
 
+def trade_criteria(trade, execution_time_frame):
+    if (breaks_trendline(trade)):
+        if (compare_TimeFrame(execution_time_frame, get_TimeFrame(trade[1])) == TimeFrameComparer.Equal):
+            return True
+        elif (compare_TimeFrame(execution_time_frame, get_TimeFrame(trade[1])) == TimeFrameComparer.Lower and is_strong_candle(trade)):
+            return True
+    return False
+def breaks_trendline(trade):
+    if trade[13] > trade[7] * trade[9] + trade[8] and get_TradeDirection(trade[2]) == TradeDirection.BUY:
+        return True
+    if trade[13] < trade[7] * trade[9] + trade[8] and get_TradeDirection(trade[2]) == TradeDirection.SELL:
+        return True
+    return False
+
+def is_strong_candle(trade):
+    if get_TradeDirection(trade[2]) == TradeDirection.BUY and trade[11] == trade[13]:
+        return True
+    if get_TradeDirection(trade[2]) == TradeDirection.SELL and trade[12] == trade[13]:
+        return True
+    return False
+
 def update_trades(orders_placed):
     try:
         if orders_placed:
@@ -455,7 +494,7 @@ def update_trades(orders_placed):
             conn.commit()
     except (Exception) as error:
         trades_executer_logger.error("Failed at get_trades method error mesage: " + str(error))
-
+    
 def get_trades(time_frame, start_time, end_time):
     try:
         query = f"""
@@ -497,6 +536,7 @@ def get_trades(time_frame, start_time, end_time):
 def api_get_stock_data(stock_token, time_frame):
     try:
         data = []
+        print(stock_token, time_frame)
         table = get_table(time_frame)
         query = f"select * from {table} where token = {stock_token} order by index asc"
         cur.execute(query)
@@ -512,7 +552,6 @@ def api_get_stock_data(stock_token, time_frame):
                 "low":rows['low_price'][i],
                 "close":rows['close_price'][i]
                 })
-        data  = {"stockData" : data}
         return data
     except (Exception) as error:
         print(f"failed while responding api call in method api_get_stock_data for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)
@@ -546,27 +585,28 @@ def add_trade_data(tradedetails):
     
 # this method gets all stock details
 def get_stock_details(timeFrame:str, stockListCategory:str, stockListSort:str):
-    tokens = get_tokens(stockListCategory)
+    tokens = get_tokens(get_marketcap(stockListCategory))
+    print(len(tokens))
     if stockListSort == "cap":
         return {'stocksDict' :ALL_TOKENS, 'tokensList':tokens}
     if stockListSort  == "alphabets":
         tokens.sort(key=lambda x: ALL_TOKENS[x])
     else:
         tokens = get_tokens_ordered_Based_on_connects(timeFrame, stockListSort, tokens)
+    print(len(tokens))
     return {'stocksDict' :ALL_TOKENS, 'tokensList':tokens}
 
 def get_tokens_ordered_Based_on_connects(timeFrame, HL, tokens):
     query =  f"""select
-                    trendline_data.token
-                from trendline_data
-                    inner join stock_details
-                on stock_details.token = trendline_data.token 
-                where trendline_data.tf= '{timeFrame}' and trendline_data.connects > 2 and trendline_data.hl = '{HL}' 
-                order by trendline_data.connects desc;
+                    token, connects
+                from trendline_data 
+                where tf= '{timeFrame}' and connects > 2 and hl = '{HL}' 
+                order by (connects, totalconnects) desc;
             """
     execute_query(query)
     result = []
     rows = cur.fetchall()
+    print("rows len", len(rows) )
     for x in rows:
         if str(x[0]) in tokens:
             result.append(x[0])
@@ -593,11 +633,12 @@ def api_get_trendline_data(stock_token, time_frame):
                     "time": int(row[6].replace(tzinfo=timezone.utc).timestamp()),
                     "value" :slope*row[9]+intercept
                     }])
-                hl += row[7]
-        data  = {"trendlineData" : data, "linesData":hl}
+                hl += row[7] 
+        data = {"trendlineData" : data, "linesData":hl}
         return data
     except (Exception) as error:
         print(f"failed while responding api call in method api_get_trendline_data for stock_token: {stock_token} and time_frame : {time_frame} error mesage: ",error)
+        return {"trendlineData" : [], "linesData":""}
 
 # this method gets all the trades data 
 def get_all_trades():

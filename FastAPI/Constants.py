@@ -1720,8 +1720,35 @@ class CandleComparer(Enum):
     Higher = 1,
     Lower = -1,
     Equal=  0,
-    
 
+class MarketCap(Enum):
+    N50 = "n50",
+    N100 = "n100",
+    N200=  "n200",
+    N500 = "n500",
+    N1000 = "n1000",
+    ALL= "all",
+
+class TimeFrame(Enum):
+    FIVE_MINUTE = -1
+    FIFTEEN_MINUTE = 0
+    THIRTY_MINUTE = 1
+    ONE_HOUR = 2
+    TWO_HOUR = 3
+    FOUR_HOUR = 4
+    ONE_DAY = 5
+    ONE_WEEK = 6
+    ONE_MONTH = 7
+
+class TimeFrameComparer(Enum):
+    Lower = -1
+    Equal = 0
+    Higher = 1
+
+class TradeDirection(Enum):
+    BUY = 1
+    SELL = -1
+    
 # data tables
 DAILY_DATA_TABLE = "dailytf_data"
 FIFTEEN_DATA_TABLE = "fifteentf_data"
@@ -2069,7 +2096,6 @@ TOKENS_200 = {
 "6545" : "NYKAA",
 "4749" : "CONCOR",
 "18365" : "PERSISTENT",
-"17030" : "PATANJALI",
 "2029" : "IRFC",
 "1627" : "LINDEINDIA",
 "11184" : "IDFCFIRSTB",
@@ -2273,7 +2299,6 @@ TOKENS_500 = {
 "6545" : "NYKAA",
 "4749" : "CONCOR",
 "18365" : "PERSISTENT",
-"17030" : "PATANJALI",
 "2029" : "IRFC",
 "1627" : "LINDEINDIA",
 "11184" : "IDFCFIRSTB",
@@ -2384,14 +2409,12 @@ TOKENS_500 = {
 "12032" : "FIVESTAR",
 "8124" : "AJANTPHARM",
 "10726" : "INDIAMART",
-"13061" : "360ONE",
 "13310" : "KEI",
 "1726" : "JBCHEPHARM",
 "11654" : "LALPATHLAB",
 "11236" : "JSL",
 "15313" : "IRB",
 "676" : "EXIDEIND",
-"13147" : "PVR",
 "13197" : "GSPL",
 "495" : "BLUEDART",
 "6364" : "NATIONALUM",
@@ -2408,7 +2431,6 @@ TOKENS_500 = {
 "10925" : "GODREJIND",
 "5049" : "CLEAN",
 "509" : "MAZDOCK",
-"14937" : "MAHINDCIE",
 "40" : "AEGISCHEM",
 "1008" : "FACT",
 "8311" : "BLUESTARCO",
@@ -2416,7 +2438,6 @@ TOKENS_500 = {
 "3744" : "FINEORG",
 "11343" : "AFFLE",
 "7406" : "GLENMARK",
-"357" : "NAM-INDIA",
 "18883" : "SJVN",
 "14255" : "REDINGTON",
 "5385" : "AAVAS",
@@ -2484,8 +2505,6 @@ TOKENS_500 = {
 "6018" : "ABSLAMC",
 "628" : "CESC",
 "1621" : "TATAINVEST",
-"13504" : "ALLCARGO",
-"1814" : "KALPATPOWR",
 "18908" : "PNBHOUSING",
 "20825" : "HUDCO",
 "1675" : "ITI",
@@ -2777,7 +2796,6 @@ TOKENS_1000 = {
 "6545" : "NYKAA",
 "4749" : "CONCOR",
 "18365" : "PERSISTENT",
-"17030" : "PATANJALI",
 "2029" : "IRFC",
 "1627" : "LINDEINDIA",
 "11184" : "IDFCFIRSTB",
@@ -2888,14 +2906,12 @@ TOKENS_1000 = {
 "12032" : "FIVESTAR",
 "8124" : "AJANTPHARM",
 "10726" : "INDIAMART",
-"13061" : "360ONE",
 "13310" : "KEI",
 "1726" : "JBCHEPHARM",
 "11654" : "LALPATHLAB",
 "11236" : "JSL",
 "15313" : "IRB",
 "676" : "EXIDEIND",
-"13147" : "PVR",
 "13197" : "GSPL",
 "495" : "BLUEDART",
 "6364" : "NATIONALUM",
@@ -2912,7 +2928,6 @@ TOKENS_1000 = {
 "10925" : "GODREJIND",
 "5049" : "CLEAN",
 "509" : "MAZDOCK",
-"14937" : "MAHINDCIE",
 "40" : "AEGISCHEM",
 "1008" : "FACT",
 "8311" : "BLUESTARCO",
@@ -2920,7 +2935,6 @@ TOKENS_1000 = {
 "3744" : "FINEORG",
 "11343" : "AFFLE",
 "7406" : "GLENMARK",
-"357" : "NAM-INDIA",
 "18883" : "SJVN",
 "14255" : "REDINGTON",
 "5385" : "AAVAS",
@@ -2988,8 +3002,6 @@ TOKENS_1000 = {
 "6018" : "ABSLAMC",
 "628" : "CESC",
 "1621" : "TATAINVEST",
-"13504" : "ALLCARGO",
-"1814" : "KALPATPOWR",
 "18908" : "PNBHOUSING",
 "20825" : "HUDCO",
 "1675" : "ITI",
@@ -3176,7 +3188,6 @@ TOKENS_1000 = {
 "5751" : "SANSERA",
 "5382" : "MFL",
 "17833" : "AHLUCONT",
-"812" : "BSHSL",
 "724" : "TATACOFFEE",
 "12716" : "TEAMLEASE",
 "14435" : "JKTYRE",
@@ -3208,7 +3219,6 @@ TOKENS_1000 = {
 "20224" : "JWL",
 "13925" : "NFL",
 "1336" : "HEG",
-"8428" : "RAJRILTD",
 "2049" : "CHENNPETRO",
 "3799" : "WSTCSTPAPR",
 "11301" : "LUXIND",
@@ -3237,7 +3247,6 @@ TOKENS_1000 = {
 "4014" : "NAVA",
 "1164" : "NEWGEN",
 "1628" : "BECTORFOOD",
-"15414" : "TWL",
 "4481" : "AARTIDRUGS",
 "17069" : "UJJIVAN",
 "8510" : "GATEWAY",
@@ -3320,7 +3329,6 @@ TOKENS_1000 = {
 "14339" : "GANESHHOUC",
 "193" : "ARVIND",
 "11987" : "ICIL",
-"17190" : "SHRIPISTON",
 "7506" : "WOCKPHARMA",
 "18124" : "DBREALTY",
 "14932" : "ISMTLTD",
@@ -3440,7 +3448,6 @@ TOKENS_1000 = {
 "17520" : "RTNPOWER",
 "24196" : "VADILALIND",
 "3435" : "BBOX",
-"929" : "ORCHPHARMA",
 "14922" : "PURVA",
 "742" : "COSMOFIRST",
 "19235" : "IMFA",
@@ -3473,7 +3480,6 @@ TOKENS_1000 = {
 "15308" : "SEPC",
 "19931" : "ORISSAMINE",
 "24532" : "FILATEX",
-"28842" : "THEJO",
 "10755" : "APTECHT",
 "2493" : "ORIENTHOT",
 "11895" : "DCXINDIA",
@@ -3493,7 +3499,6 @@ TOKENS_1000 = {
 "10300" : "RAMASTEEL",
 "7048" : "HESTERBIO",
 "7553" : "NRBBEARING",
-"3098" : "INDOSTAR",
 "5938" : "MONTECARLO",
 "18889" : "KSL",
 "14908" : "KDDL",
@@ -3543,7 +3548,6 @@ TOKENS_1000 = {
 "1145" : "GIPCL",
 "3607" : "UNIVCABLES",
 "11239" : "NSIL",
-"19698" : "HMT",
 "21726" : "MATRIMONY",
 "2294" : "MTNL",
 "1338" : "SDBL",
@@ -3609,7 +3613,6 @@ TOKENS_1000 = {
 "578" : "LIKHITHA",
 "4911" : "MADRASFERT",
 "6803" : "STEELCAS",
-"20509" : "MKPL",
 "28913" : "ROSSELLIND",
 "28899" : "KITEX",
 "2708" : "PRAKASH",

@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { Context } from "../Context/AppContextProvider";
 import AxiosAPI from "../API/AxiosAPI";
+import { stocksDict } from "./Constants/constants";
 
 const TradeForm = forwardRef(({ removeTradeBox }, ref) => {
   const [tradeDirection, setTradeDirection] = useState("");
@@ -15,7 +16,7 @@ const TradeForm = forwardRef(({ removeTradeBox }, ref) => {
   const [stopLoss, setStopLoss] = useState(0);
   const [tradeOnCandleClose, setTradeOnCandleClose] = useState(false);
   const [tradeOnCandleOpen, setTradeOnCandleOpen] = useState(false);
-  const { timeFrame, stockToken, setTradeBoxActive, stockList, linesData } =
+  const { timeFrame, stockToken, setTradeBoxActive, linesData } =
     useContext(Context);
 
   useImperativeHandle(ref, () => ({
@@ -103,7 +104,7 @@ const TradeForm = forwardRef(({ removeTradeBox }, ref) => {
   return (
     <div>
       <div className="row px-3 py-2">
-        <div className="col">{stockList[stockToken]}</div>
+        <div className="col">{stocksDict[stockToken]}</div>
         <div className="col">{timeFrame}</div>
       </div>
       <form>

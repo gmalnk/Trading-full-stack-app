@@ -1,9 +1,10 @@
 import React, { useContext } from "react";
 import { Context } from "../Context/AppContextProvider";
 import TimeFrames from "./TimeFrames";
+import { stocksDict } from "./Constants/constants";
 
 export default function StockBar() {
-  const { stockToken, setSearchActive, setTradeBoxActive, stockDict } =
+  const { stockToken, setSearchActive, setTradeBoxActive } =
     useContext(Context);
 
   const handleOnClickName = () => {
@@ -22,7 +23,7 @@ export default function StockBar() {
           <ul className="navbar-nav me-auto mb-2 mb-lg-0">
             <li className="nav-item px-3">
               <p className="p-1" onClick={() => handleOnClickName()}>
-                {stockDict[stockToken]}
+                {stocksDict[stockToken]}
               </p>
             </li>
             <TimeFrames />

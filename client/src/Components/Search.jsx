@@ -1,11 +1,11 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Context } from "../Context/AppContextProvider";
+import { stocksDict } from "./Constants/constants";
 
 export default function Search() {
-  const { stockList, setStockToken, setSearchActive, stockDict } =
-    useContext(Context);
-  const stocks = Object.values(stockDict).sort();
-  const keys = Object.keys(stockDict);
+  const { setStockToken, setSearchActive } = useContext(Context);
+  const stocks = Object.values(stocksDict).sort();
+  const keys = Object.keys(stocksDict);
   const [searchList, setSearchList] = useState([]);
   const [search, setSearch] = useState("");
 
@@ -17,7 +17,7 @@ export default function Search() {
 
   const handleOnClickSearchItem = (value) => {
     for (let i = 0; i <= stocks.length; i++) {
-      if (stockDict[keys[i]] === value) {
+      if (stocksDict[keys[i]] === value) {
         console.log(keys[i]);
         setStockToken(keys[i]);
         setSearchActive(false);

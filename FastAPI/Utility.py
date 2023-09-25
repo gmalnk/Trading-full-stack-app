@@ -263,20 +263,78 @@ def get_starttime_of_analysis(time_frame):
 
 def get_tokens(stockListCategory):
     match stockListCategory:
-        case "all":
+        case MarketCap.ALL:
             return list(ALL_TOKENS.keys())
-        case "n50":
+        case MarketCap.N50:
             return list(TOKENS_50.keys())
-        case "n100":
+        case MarketCap.N100:
             return list(TOKENS_100.keys())
-        case "n200":
+        case MarketCap.N200:
             return list(TOKENS_200.keys())
-        case "n500":
+        case MarketCap.N500:
             return list(TOKENS_500.keys())
-        case "n1000":
+        case MarketCap.N1000:
             return list(TOKENS_1000.keys())
         case default:
             return list(ALL_TOKENS.keys())
+
+def get_marketcap(stockListCategory: str):
+    match stockListCategory:
+        case "all":
+            return MarketCap.ALL
+        case "n50":
+            return MarketCap.N50
+        case "n100":
+            return MarketCap.N100
+        case "n200":
+            return MarketCap.N200
+        case "n500":
+            return MarketCap.N500
+        case "n1000":
+            return MarketCap.N1000
+        case default:
+            return MarketCap.N50
+       
+def get_TimeFrame(TF: str)-> TimeFrame:
+    match TF:
+        case "FIVE_MINUTE":
+            return TimeFrame.FIVE_MINUTE
+        case "FIFTEEN_MINUTE":
+            return TimeFrame.FIFTEEN_MINUTE
+        case "THIRTY_MINUTE":
+            return TimeFrame.THIRTY_MINUTE
+        case "ONE_HOUR":
+            return TimeFrame.ONE_HOUR
+        case "TWO_HOUR":
+            return TimeFrame.TWO_HOUR
+        case "FOUR_HOUR":
+            return TimeFrame.FOUR_HOUR
+        case "ONE_DAY":
+            return TimeFrame.ONE_DAY
+        case "ONE_WEEK":
+            return TimeFrame.ONE_WEEK
+        case "ONE_MONTH":
+            return TimeFrame.ONE_MONTH
+        case default:
+            return TimeFrame.ONE_DAY
+        
+def compare_TimeFrame(TF1:TimeFrame, TF2:TimeFrame)-> TimeFrameComparer:
+    if (TF1.value < TF2.value):
+        return TimeFrameComparer.Lower
+    elif (TF1.value == TF2.value):
+        return TimeFrameComparer.Equal    
+    return TimeFrameComparer.Higher
+
+def get_TradeDirection(Direction:str)->TradeDirection:
+    match Direction :
+        case 'BUY':
+            return TradeDirection.BUY
+        case 'SELL':
+            return TradeDirection.SELL
+        case default:
+            return TradeDirection.BUY
+            
+    
 
 #  Boss for Price Data and Trendlines
 class PriceData:
@@ -438,7 +496,6 @@ class PriceData:
         
         # logic to get the highre order trendlines or the super trendlines    
         prev_map=self.ThirdOrderTrendlineCombinationsSet
-        self.ThirdOrderTrendlineCombinationsSet = set()
         present_map=set()
         candles = self.HighsForDownTrendLines if H_L == "H" else self.LowsForUpTrendLines
         n=len(candles)
@@ -474,16 +531,17 @@ class PriceData:
         for combo in reversed(self.AllTrendlineCombinationList):
                 comboCandles = [candles[i] for i in combo]
                 pricerange = self.EqualCandles(comboCandles, H_L)
-                if pricerange[0] > pricerange[1] and self.IsTrendlineValid([comboCandles, 0, pricerange[1]], H_L):
-                        self.TrendlinesToDraw.append(TrendLine(comboCandles, 0, pricerange[1], H_L))
+                if pricerange[0] > pricerange[1] and self.IsTrendlineValid(TrendLine(comboCandles, 0, pricerange[1], H_L, len(comboCandles))):
+                        self.TrendlinesToDraw.append(TrendLine(comboCandles, 0, pricerange[1], H_L,len(comboCandles)))
                         foundTrendline = True
                         break
                 else:
                     better_trendline = Solver.RunHH(comboCandles, self.Candles) if H_L == "H" else Solver.RunLL(comboCandles, self.Candles)
-                    if better_trendline.Slope != None and self.IsTrendlineValid(TrendLine(comboCandles, better_trendline.Slope, better_trendline.Intercept, H_L)):
-                        self.TrendlinesToDraw.append(TrendLine(comboCandles, better_trendline.Slope, better_trendline.Intercept, H_L))
+                    if better_trendline.Slope != None and self.IsTrendlineValid(better_trendline):
+                        self.TrendlinesToDraw.append(better_trendline)
                         foundTrendline = True
                         break
         if not foundTrendline:
-            daily_logger.error("not found any combination" + str(self.AllTrendlineCombinationList))
+            daily_logger.warning("not found any combination" + str(self.AllTrendlineCombinationList))
         self.AllTrendlineCombinationList = []
+        self.ThirdOrderTrendlineCombinationsSet = set()

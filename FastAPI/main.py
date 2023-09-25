@@ -24,13 +24,13 @@ app.add_middleware(
 def get_startup():
     return {"hello" : "world! you are in the fast api home page"}
 
-# @app.get("/stocklist")
-# def get_stocklist():
-#     return ALL_TOKENS
-#     # return   PgConnection.get_stock_details()
+@app.get("/stockDict")
+def  get_stockDict():
+    return {"stocksDict": ALL_TOKENS}
 
 @app.get("/stocklist/{timeFrame}/{stockListCategory}/{stockListSort}")
 def get_stocklist(timeFrame:str, stockListCategory:str, stockListSort:str):
+    print("data", type(timeFrame), stockListCategory, stockListSort)
     return  PgConnection.get_stock_details(timeFrame, stockListCategory, stockListSort)
     
 @app.put("/stocklist")
@@ -40,12 +40,10 @@ def  update_stocklist(stockDetails:dict):
     #  PgConnection.update_stock_details_table({"stock_token":stockDetails["stock_token"],"time_frame": stockDetails["time_frame"],"chategory":stockDetails['chategory'] })
 
 @app.get("/{stock_token}/{time_frame}")
-def get_stock(stock_token: int, time_frame: str):
-    return  PgConnection.api_get_stock_data(stock_token, time_frame)
-
-@app.get("/trendlines/{stock_token}/{time_frame}")
-def get_trendline(stock_token: int, time_frame: str):
-    return   PgConnection.api_get_trendline_data(stock_token, time_frame)
+def get_stock(stock_token: str, time_frame: str):
+    stockData =   PgConnection.api_get_stock_data(stock_token, time_frame)
+    data =  PgConnection.api_get_trendline_data(stock_token, time_frame)
+    return {"stockData":stockData,"trendlineData": data["trendlineData"], "linesData": data['linesData']}
 
 @app.post("/tradedetails")
 def add_trade( tradedetails:dict):
