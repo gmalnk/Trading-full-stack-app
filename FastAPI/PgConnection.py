@@ -212,7 +212,9 @@ def get_trendLines(data):
         if lows:
             index = min(index, lows[0].Index)
         candles = fetch_candles(stock_token = stock_token, time_frame = time_frame, index = index-TEN)
-        priceData = PriceData(highs, lows, candles)
+        current_trendlines = fetch_current_trendlines(stock_token, time_frame)
+        [update_uptrendline, update_downtrendline] = update_broken_trendlines(current_trendlines, candles[-30:])
+        priceData = PriceData(highs, lows, candles, update_uptrendline, update_downtrendline)
         trendlines = priceData.TrendlinesToDraw
         update_trendlines(stock_token, time_frame, trendlines)
     except (Exception) as error:
@@ -220,6 +222,30 @@ def get_trendLines(data):
     finally:
         daily_logger.info("generated trendlines successfully for " + ALL_TOKENS[stock_token] + " stock")
         
+def update_broken_trendlines(current_trendlines, latest_candles: list[Candle]):
+        update = ''
+        no_trendline = ""
+        query = """ insert 
+                    into broken_trendlines (token, tf, slope, intercept, startdate, enddate, hl, index1, index2, index, connects, totalconnects) 
+                    values """
+        for trendline in current_trendlines:
+            if trendline[3] == 0 and trendline[4] == -1:
+                no_trendline += trendline[7]
+                continue
+            for candle in reversed(latest_candles):
+                if datetime.strptime(candle.Date, '%Y-%m-%d %H:%M').replace(tzinfo=trendline[6].tzinfo) < trendline[6]:
+                    break
+                if (trendline[7] == "H" and candle.Close > trendline[3]*candle.Index + trendline[4]) or (trendline[7] == "L" and candle.Close < trendline[3]*candle.Index + trendline[4]):
+                    query += f"({trendline[1]}, '{trendline[2]}', {trendline[3]},{trendline[4]},'{trendline[5]}','{trendline[6]}','{trendline[7]}',{trendline[8]},{trendline[9]},{trendline[10]},{trendline[11]},{trendline[12]}),"
+                    initialize_trendline(trendline[1], trendline[2], trendline[7])
+                    update += trendline[7] 
+                    break
+        if not update:
+            return[no_trendline.__contains__("L"), no_trendline.__contains__("H")]
+        execute_query(query[:-1])
+        conn.commit()
+        return [update.__contains__("L") or no_trendline.__contains__("L"), update.__contains__("H") or no_trendline.__contains__("H")]
+            
 # this method updates trendlines in the database       
 def update_trendlines(stock_token, time_frame, trendlines):
     try:
@@ -249,7 +275,33 @@ def update_trendlines(stock_token, time_frame, trendlines):
         daily_logger.error("Failed at update_trendlines method  error message : " + str(error))
     finally:
         daily_logger.info("updated trendlines successfully for " + ALL_TOKENS[stock_token] + " stock")
-        
+
+def initialize_trendline(stock_token, time_frame, hl):
+    query = f"""UPDATE trendline_data 
+                            SET 
+                                slope = 0,
+                                intercept = -1,
+                                startdate = '{datetime.now()}',
+                                enddate = '{datetime.now()}',
+                                index1 = 0,
+                                index2 = 0,
+                                index = 0,
+                                connects = 0,
+                                totalconnects = 0
+                            WHERE token = {stock_token} AND
+                                tf = '{time_frame}' AND
+                                hl = '{hl}';"""
+    execute_query(query)
+    conn.commit()
+
+def fetch_current_trendlines(stock_token, time_frame):
+        query = f"""
+                    select * 
+                    from trendline_data
+                    where token = {stock_token} and tf = '{time_frame}'
+        """
+        execute_query(query)        
+        return cur.fetchall()
 
 
 # this method fetches high candles for given stock, for given time frame

@@ -340,10 +340,12 @@ def get_TradeDirection(Direction:str)->TradeDirection:
 class PriceData:
 
     # Constructor
-    def __init__(self, highs, lows, candles):
+    def __init__(self, highs, lows, candles, update_uptrendline, update_downtrendline):
 
         # initialization
         self.Candles = candles
+        self.Highs = []
+        self.Lows = []
         self.HighsForDownTrendLines = []
         self.LowsForUpTrendLines = []
         self.Trendlines = []
@@ -352,8 +354,10 @@ class PriceData:
         self.ThirdOrderTrendlineCombinationsSet=set()
         
         # filtering Highs and Lows 
-        self.Highs = filter_highs(highs)
-        self.Lows = filter_lows(lows)
+        if update_downtrendline:
+            self.Highs = filter_highs(highs)
+        if update_uptrendline:
+            self.Lows = filter_lows(lows)
         
         # getting List of Highs for down trendlines
         if (self.Highs):
@@ -433,14 +437,14 @@ class PriceData:
         daily_logger.info("getting higher order trendlines for highs")
         self.GetSuperTrendLinesFromComboAlgo("H")
         
-        for i in range(len(self.LowsForUpTrendLines)):
-            for j in range(i+1, len(self.LowsForUpTrendLines)):
-                for k in range(j+1, len(self.LowsForUpTrendLines)):
-                    if (self.IsTrendLinePossible([self.LowsForUpTrendLines[i], self.LowsForUpTrendLines[j], self.LowsForUpTrendLines[k]], "L")):
-                        self.ThirdOrderTrendlineCombinationsSet.add((i,j,k))
-                        self.AllTrendlineCombinationList.append([i,j,k])
-        daily_logger.info("getting higher order trendlines for lows")
-        self.GetSuperTrendLinesFromComboAlgo("L")
+        # for i in range(len(self.LowsForUpTrendLines)):
+        #     for j in range(i+1, len(self.LowsForUpTrendLines)):
+        #         for k in range(j+1, len(self.LowsForUpTrendLines)):
+        #             if (self.IsTrendLinePossible([self.LowsForUpTrendLines[i], self.LowsForUpTrendLines[j], self.LowsForUpTrendLines[k]], "L")):
+        #                 self.ThirdOrderTrendlineCombinationsSet.add((i,j,k))
+        #                 self.AllTrendlineCombinationList.append([i,j,k])
+        # daily_logger.info("getting higher order trendlines for lows")
+        # self.GetSuperTrendLinesFromComboAlgo("L")
         
 
     # this method returns pricerange if the candles form a trendline with zero slop then pricerange[0] is greater than pricerange[1]
@@ -469,25 +473,25 @@ class PriceData:
 
     # This method Validates a trendline
     def IsTrendlineValid(self, trendline:TrendLine):
-        if (trendline.HL == 'H'):
+        if (trendline.HL == 'H'):             
             for candle in trendline.Candles:
                 value = self.GetTrendlineValue(trendline, candle.Index)
-                if candle.High < value:
+                if TOLERANCE < value - candle.High:
                     return False
-            for candle in reversed(self.Highs):
+            for candle in reversed(self.Highs + self.Candles[-5:]):
                 value = self.GetTrendlineValue(trendline, candle.Index)
-                if (max(candle.Open, candle.Close) >= value):
+                if (max(candle.Open, candle.Close) - value > TOLERANCE):
                     return False
                 if (candle.Date == trendline.Candles[0].Date):
                     return True
         else:
             for candle in trendline.Candles:
                 value = self.GetTrendlineValue(trendline, candle.Index)
-                if candle.Low > value:
+                if candle.Low - value > TOLERANCE:
                     return False
-            for candle in reversed(self.Lows):
+            for candle in reversed(self.Lows + self.Candles[-5:]):
                 value = self.GetTrendlineValue(trendline, candle.Index)
-                if (max(candle.Open, candle.Close) <= value):
+                if ( TOLERANCE < value - min(candle.Open, candle.Close)):
                     return False
                 if (candle.Date == trendline.Candles[0].Date):
                     return True
