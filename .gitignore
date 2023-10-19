@@ -29,7 +29,7 @@ client/node_modules
 SQL
 run.py
 config.py
-Solver.py
+Solver.py   
 exp.py
 exp.jsx
 fast_api_lib_if.py
@@ -50,3 +50,15 @@ daily_run.log
 tokens.py
 /Schedulers
 exception_handler.py
+manual_copy_change_while_deployment.txt
+client/build
+# required a deployment
+# daily_run_scheduler.py
+# setup.py
+# 
+# config.py
+# daily_run.py
+# fast_api_lib_if.py
+# run.py
+# solver.py
+# trades_executer.py

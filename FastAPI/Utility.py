@@ -1,5 +1,4 @@
 from FastAPI.Candle import Candle
-from FastAPI.tradeline_property import *
 from FastAPI.Constants import *
 from FastAPI.fast_api_lib_if import *
 from FastAPI.config import *
