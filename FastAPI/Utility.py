@@ -8,6 +8,7 @@ from datetime import date
 from FastAPI.Solver import Solver
 from FastAPI.Trendline import TrendLine
 import pandas as pd
+from itertools import combinations
 # returns True if the given candle is Local Maximum else False
 
 
@@ -18,7 +19,8 @@ def IsMax(candles, i):
         return False
 
 # returns True if the given candle is Local minimum else False
-
+def generate_combinations(numbers, r):
+    return list(combinations(numbers, r))
 
 def IsMin(candles, i):
     if min(candles[i-5].Low, candles[i-4].Low, candles[i-3].Low, candles[i-2].Low, candles[i-1].Low, candles[i].Low, candles[i+1].Low, candles[i+2].Low, candles[i+3].Low, candles[i+4].Low, candles[i+5].Low) == candles[i].Low:
