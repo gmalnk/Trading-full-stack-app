@@ -1,10 +1,10 @@
 import psycopg2
 import math
-from FastAPI.fast_api_lib_if import *
+from FastAPI.Modules.Logging import *
 from FastAPI.Constants import *
 from FastAPI.config import *
-from FastAPI.Candle import Candle
-from FastAPI.Utility import *
+from FastAPI.Modules.Candle import Candle
+from FastAPI.Modules.Utility import *
 from datetime import timedelta
 from datetime import datetime
 from datetime import timezone
@@ -12,6 +12,8 @@ from datetime import date
 import pandas as pd
 import numpy
 from psycopg2.extensions import register_adapter, AsIs
+import influxdb_client
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 def addapt_numpy_float64(numpy_float64):
     return AsIs(numpy_float64)
@@ -22,37 +24,50 @@ def addapt_numpy_int64(numpy_int64):
 register_adapter(numpy.float64, addapt_numpy_float64)
 register_adapter(numpy.int64, addapt_numpy_int64)
 
-
+# ******************** POSTGRES DB INIT ********************
 # this method uses environmnet variables and psycopg2 package to connect to postgres data base
 def connect_to_database():
     return psycopg2.connect(
-        host=HOST,
-        database=DATABASE,
-        user=USER,
-        password=PASSWORD
+        host=POSTGRES_HOST,
+        database=POSTGRES_DATABASE,
+        user=POSTGRES_USER,
+        password=POSTGRES_PASSWORD
     )
 
 # this method closes the connection at the end of the day
 def close_connection():
-    conn.close()
+    pg_connection.close()
 
 # this method executes the query 
 def execute_query(query):
-    cur.execute(query)
+    pg_cursor.execute(query)
     
 #  global variables used frequently for quering data from data base
-conn = connect_to_database()
-cur = conn.cursor()
+pg_connection = connect_to_database()
+pg_cursor = pg_connection.cursor()
 
+# ******************** POSTGRES DB INIT ********************
+influx = influxdb_client.InfluxDBClient(
+   url=INFLUX_URL,
+   token=INFLUX_TOKEN,
+   org=INFLUX_ORG
+)
+
+influx_write = influx.write_api(write_options=SYNCHRONOUS)
+influx_delete = influx.delete_api()
+influx_query = influx.query_api()
+
+
+# *********************** POSTGERSQL DB METHODS ***********************
 # this method inserts ticks data into ticks_data table in historicdata data base
 # this method gets triggered when the on_data method gets a message
 
 def add_ticks_data(token, data):
     try:
         query = f"INSERT INTO ticks_data (symbol_token, time_stamp, ltp) values({token}, '{datetime.fromtimestamp(data['exchange_timestamp']/1000.0).strftime('%Y-%m-%d %H:%M:%S')}',{data['last_traded_price']/100.0})"
-        cur.execute(
+        pg_cursor.execute(
             """INSERT INTO ticks_data (symbol_token, time_stamp, ltp) values(%s, %s, %s)""", [token, datetime.fromtimestamp(data['exchange_timestamp']/1000.0).strftime('%Y-%m-%d %H:%M:%S'), data['last_traded_price']/100.0])
-        conn.commit()
+        pg_connection.commit()
     except (Exception) as error:
         real_time_logger.error("Failed to insert record into ticks_data table error message:" + str(error))
 
@@ -70,10 +85,9 @@ def get_ticks_candles(token, time_frame, start_time, end_time=None):
         if end_time == None:
             end_time = start_time
             start_time = end_time - timedelta(minutes=no_of_minutes(time_frame))
-        cur = conn.cursor()
-        cur.execute(
+        pg_cursor.execute(
             f"select * from ticks_data where token = {token} and time_stamp >= '{start_time} and time_stamp <= '{end_time}'")
-        rows = cur.fetchall()
+        rows = pg_cursor.fetchall()
         rows = convert_ltp_to_ohlc(time_frame, rows)
         candles = []
         for i in rows.index:
@@ -88,11 +102,10 @@ def get_ticks_candles(token, time_frame, start_time, end_time=None):
 
 def add_market_data_daily(data):
     try:
-        cur = conn.cursor()
         for row in data:
-            cur.execute("""INSERT INTO daily_data (symbol_token, time_stamp, open_price, high_price, low_price, close_price, high_low) values (%s,%s,%s,%s,%s,%s,'')""", [
+            pg_cursor.execute("""INSERT INTO daily_data (symbol_token, time_stamp, open_price, high_price, low_price, close_price, high_low) values (%s,%s,%s,%s,%s,%s,'')""", [
                         row[0], row[1], row[2], row[3], row[4], row[5]])
-            conn.commit()
+            pg_connection.commit()
     except (Exception) as error:
         daily_logger.error("Failed at add_market_data_daily method (error message):" + str(error))
 
@@ -109,7 +122,7 @@ def add_past_data_from_yfinance(stock_token, data):
             query += f"({stock_token},'{date}',{data['Open'][i]},{data['High'][i]},{data['Low'][i]},{data['Close'][i]},{counter}),"
             counter = counter + 1
         execute_query(query[:-1])
-        conn.commit()
+        pg_connection.commit()
     except (Exception) as error:
         daily_logger.error("Failed at add_past_data_from_yfinance method (error message):" + str(error))
 
@@ -128,7 +141,7 @@ def add_past_data_from_yfinance_once(data):
             daily_logger.info(f"symbol: {symbol} counter: {counter}")
             daily_logger.info("started adding data to database...")
             execute_query(query[:-1])
-            conn.commit()   
+            pg_connection.commit()   
     except (Exception) as error:
         daily_logger.error("Failed at add_past_data_from_yfinance method (error message):" + str(error))
     finally:
@@ -150,7 +163,7 @@ def add_latest_data_from_yfinance_once(data):
                 query += f"({token},'{date}',{data[(symbol, 'Open')][i]},{data[(symbol, 'High')][i]},{data[(symbol, 'Low')][i]},{data[(symbol, 'Close')][i]},{counter}),"
                 counter = counter + 1
         execute_query(query[:-1])
-        conn.commit()   
+        pg_connection.commit()   
     except (Exception) as error:
         daily_logger.error("Failed at add_latest_data_from_yfinance_once method (error message):" + str(error))
     finally:
@@ -169,7 +182,7 @@ def add_past_data_from_smart_api(stock_token, time_frame, data):
             query += f"({stock_token}, '{row[0]}', {row[1]}, {row[2]}, {row[3]}, {row[4]}, {counter}),"
             counter = counter + 1
         execute_query(query[:-1])
-        conn.commit()
+        pg_connection.commit()
     except (Exception) as error:
         daily_logger.error(f"failed at add_past_data_from_smart_api method failed for stock_token : {stock_token} error message: " + str(error))
     finally:
@@ -190,7 +203,7 @@ def initialize_high_low(data):
             for candle in highlow_candles:
                 query += f" ({candle.Index}, {stock_token}, '{candle.Date}', {candle.Open}, {candle.High}, {candle.Low}, {candle.Close}, '{candle.High_Low}', '{time_frame}'),"
             execute_query(query[:-1])
-            conn.commit()
+            pg_connection.commit()
             daily_logger.info("inserted highs and lows ***********************************")
             return 1
         daily_logger.info("highlow_candles length is zero")
@@ -243,7 +256,7 @@ def update_broken_trendlines(current_trendlines, latest_candles: list[Candle]):
         if not update:
             return[no_trendline.__contains__("L"), no_trendline.__contains__("H")]
         execute_query(query[:-1])
-        conn.commit()
+        pg_connection.commit()
         return [update.__contains__("L") or no_trendline.__contains__("L"), update.__contains__("H") or no_trendline.__contains__("H")]
             
 # this method updates trendlines in the database       
@@ -270,7 +283,7 @@ def update_trendlines(stock_token, time_frame, trendlines):
                                 tf = '{time_frame}' AND
                                 hl = '{trendline.HL}';"""
             execute_query(query)
-            conn.commit()
+            pg_connection.commit()
     except (Exception) as error:
         daily_logger.error("Failed at update_trendlines method  error message : " + str(error))
     finally:
@@ -292,7 +305,7 @@ def initialize_trendline(stock_token, time_frame, hl):
                                 tf = '{time_frame}' AND
                                 hl = '{hl}';"""
     execute_query(query)
-    conn.commit()
+    pg_connection.commit()
 
 def fetch_current_trendlines(stock_token, time_frame):
         query = f"""
@@ -301,7 +314,7 @@ def fetch_current_trendlines(stock_token, time_frame):
                     where token = {stock_token} and tf = '{time_frame}'
         """
         execute_query(query)        
-        return cur.fetchall()
+        return pg_cursor.fetchall()
 
 
 # this method fetches high candles for given stock, for given time frame
@@ -309,8 +322,8 @@ def fetch_highs(stock_token, time_frame):
     try:
         start_time = get_starttime_of_analysis(time_frame)
         query = f"select * from highlow_data where token = {stock_token} and tf = '{time_frame}' and high_low like 'high%' and time_stamp > '{start_time.strftime('%Y-%m-%d %H:%M')}' order by index asc"
-        cur.execute(query)
-        rows = cur.fetchall()
+        pg_cursor.execute(query)
+        rows = pg_cursor.fetchall()
         candles = []
         for row in rows:
             candles.append(
@@ -326,8 +339,8 @@ def fetch_lows(stock_token, time_frame):
     try:
         start_time = get_starttime_of_analysis(time_frame)
         query = f"select * from highlow_data where token = {stock_token} and tf = '{time_frame}' and high_low like '%low' and time_stamp > '{start_time.strftime('%Y-%m-%d %H:%M')}' order by index asc"
-        cur.execute(query)
-        rows = cur.fetchall()
+        pg_cursor.execute(query)
+        rows = pg_cursor.fetchall()
         candles = []
         for row in rows:
             candles.append(
@@ -346,8 +359,8 @@ def fetch_candles(stock_token, time_frame, limit=0, index = 0, start_time = date
         query = f"select * from {table} where token = {stock_token} order by index desc "
         if limit > 0:
             query += f"limit {limit}"
-        cur.execute(query)
-        rows = cur.fetchall()
+        pg_cursor.execute(query)
+        rows = pg_cursor.fetchall()
         rows.reverse()
         rows = convert_data_timeframe(time_frame, rows)
         if rows.empty:
@@ -374,7 +387,7 @@ def get_latest_index(stock_token, time_frame):
         table = get_table(time_frame)
         query = f"select max(index) from {table} where token = {stock_token}"
         execute_query(query)
-        rows = cur.fetchall()
+        rows = pg_cursor.fetchall()
         if rows[0][0] == None:
              return 0
         return rows[0][0]
@@ -388,7 +401,7 @@ def get_latest_date(stock_token, time_frame):
         table = get_table(time_frame)
         query = f"select max(time_stamp) from {table} where token = {stock_token}"
         execute_query(query)
-        rows = cur.fetchall()
+        rows = pg_cursor.fetchall()
         if rows[0][0] == None:
              return 0
         return rows[0][0]
@@ -400,15 +413,15 @@ def get_latest_highlow_index(stock_token, time_frame):
     try:
         query = f"select max(index) from highlow_data where token = {stock_token} and tf = '{time_frame}'"
         execute_query(query)
-        rows = cur.fetchall()
+        rows = pg_cursor.fetchall()
         if rows[0][0] == None:
              return 0
         return rows[0][0]
     except (Exception) as error:
         daily_logger.error(f"failed at get_latest_index method for stock_token: {stock_token} and time_frame : {time_frame} error mesage: " + str(error))
 
-# this method's functionality is to initialize trendline_data table with initial values
-def initialize_trendline_data_table():
+# this method's functionality is to create trendline_data table with initial values
+def create_trendline_data_table():
     try:
         # query = 'DROP TABLE if exists trendlinecandels_data; DROP TABLE if exists trendline_data;'
         # query +='''CREATE TABLE if not exists trendline_data(
@@ -434,11 +447,31 @@ def initialize_trendline_data_table():
                 query += f"""({stock_token}, '{time_frame}',{0},{-1},'{date_str}', '{date_str}', 'H', {0},{0},{0},{0},{0}), 
                              ({stock_token}, '{time_frame}',{0},{-1},'{date_str}', '{date_str}', 'L', {0},{0},{0},{0},{0}),"""
         execute_query(query[:-1])
-        conn.commit()
+        pg_connection.commit()
     except (Exception) as error:
         print(f"failed at initialize_trendline_data_table method error mesage: " + str(error))
     finally:
         print("succesfully initialized trendline_data table")
+
+def initialize_trendline_data_table():
+    try:
+        date_str = date.today().strftime('%Y-%m-%d %H:%M')
+        query = f"""UPDATE trendline_data
+                    SET slope = 0,
+                    intercept = -1,
+                    startdate = '{date_str}', 
+                    enddate = '{date_str}', 
+                    index1 = 0, 
+                    index2 = 0, 
+                    index = 0, 
+                    connects = 0, 
+                    totalconnects = 0;"""
+        execute_query(query)
+        pg_connection.commit()
+    except (Exception) as error:
+        trades_executer_logger.error("Failed at initialize_trendline_data_table method error mesage: " + str(error))
+    finally:
+        daily_logger.info(f"succesfully initialize_trendline_data_table")
 
 # this method increments the index of the trendlines for given timeframe
 # used repetatively for every new candle formed in any time frame in real time
@@ -448,7 +481,7 @@ def increment_index(time_frame):
                     SET index = index +1
                     WHERE tf= '{time_frame}'"""
         execute_query(query)
-        conn.commit()
+        pg_connection.commit()
     except (Exception) as error:
         trades_executer_logger.error("Failed at increment_index method error mesage: " + str(error))
     finally:
@@ -463,7 +496,7 @@ def initialize_stocks_details_table():
         for token in ALL_TOKENS:
             query += f"({token}, '{ALL_TOKENS[token]}', ''),"
         execute_query(query[:-1])
-        conn.commit()
+        pg_connection.commit()
     except (Exception) as error:
         print("failed at initialize_stocks_details_table method error mesage: ",error)
 
@@ -518,6 +551,7 @@ def trade_criteria(trade, execution_time_frame):
         elif (compare_TimeFrame(execution_time_frame, get_TimeFrame(trade[1])) == TimeFrameComparer.Lower and is_strong_candle(trade)):
             return True
     return False
+
 def breaks_trendline(trade):
     if trade[13] > trade[7] * trade[9] + trade[8] and get_TradeDirection(trade[2]) == TradeDirection.BUY:
         return True
@@ -543,7 +577,7 @@ def update_trades(orders_placed):
                 query += f" {token},"
             query = query[:-1]+");"
             execute_query(query)
-            conn.commit()
+            pg_connection.commit()
     except (Exception) as error:
         trades_executer_logger.error("Failed at get_trades method error mesage: " + str(error))
     
@@ -573,17 +607,17 @@ def get_trades(time_frame, start_time, end_time):
         where trades_data.status = 'TODO' and trades_data.tf = '{time_frame}' and trades_data.entry_condition like '%Close%';
         """
         execute_query(query)
-        rows = cur.fetchall()
+        rows = pg_cursor.fetchall()
         return rows
     except (Exception) as error:
         trades_executer_logger.error("Failed at get_trades method error mesage: " + str(error))
 
+# *********************** INFLUX DB METHODS ***********************
 
 
 
 
-
-# FRONTEND API METHODS
+# *********************** FRONTEND API METHODS ***********************
 # this method provides stock data, for given stock token, for given time frame, for plotting in UI
 def api_get_stock_data(stock_token, time_frame):
     try:
@@ -591,8 +625,8 @@ def api_get_stock_data(stock_token, time_frame):
         print(stock_token, time_frame)
         table = get_table(time_frame)
         query = f"select * from {table} where token = {stock_token} order by index asc"
-        cur.execute(query)
-        rows = cur.fetchall()
+        pg_cursor.execute(query)
+        rows = pg_cursor.fetchall()
         rows = convert_data_timeframe(time_frame, rows)
         if rows.empty :
             return {"stockData" : data}
@@ -631,7 +665,7 @@ def add_trade_data(tradedetails):
         )
         """
         execute_query(query)
-        conn.commit()
+        pg_connection.commit()
     except (Exception) as error:
         print(f"failed while responding api call in method add_trade_data for stock_token: {tradedetails['stockToken']} and time_frame : {tradedetails['timeFrame']} error mesage: ",error)
     
@@ -657,7 +691,7 @@ def get_tokens_ordered_Based_on_connects(timeFrame, HL, tokens):
             """
     execute_query(query)
     result = []
-    rows = cur.fetchall()
+    rows = pg_cursor.fetchall()
     print("rows len", len(rows) )
     for x in rows:
         if str(x[0]) in tokens:
@@ -670,7 +704,7 @@ def api_get_trendline_data(stock_token, time_frame):
         data = []
         query = f"select * from trendline_data where token = {stock_token} and tf = '{time_frame}'"
         execute_query(query)
-        rows = cur.fetchall()
+        rows = pg_cursor.fetchall()
         data = []
         hl = ""
         for row in rows:
@@ -699,7 +733,7 @@ def get_all_trades():
                 INNER JOIN trades_data  
                 ON stock_details.token = trades_data.token"""
     execute_query(query)
-    rows = cur.fetchall()
+    rows = pg_cursor.fetchall()
     tradesData = []
     for row in rows:
         tradesData.append(
@@ -723,4 +757,28 @@ def get_all_trades():
 def delete_trade(id):
     query = f"delete from trades_data where id = {id}"
     execute_query(query)
-    conn.commit()
+    pg_connection.commit()
+    
+def authenticate(email, password):
+    query = f"select * from users where email = '{email}' and password = '{password}';"
+    execute_query(query)
+    rows = pg_cursor.fetchall()
+    if len(rows) == 1:
+        return True
+    else:
+        return False
+
+def add_user(name, email, password):
+    query = f"select * from users where email = '{email}';"
+    execute_query(query)
+    rows = pg_cursor.fetchall()
+    if len(rows) == 1:
+        return False
+    else:
+        query = f"insert into users (name, email, password) values ('{name}','{email}','{password}');"
+        execute_query(query)
+        pg_connection.commit()
+        return True
+    
+    
+    

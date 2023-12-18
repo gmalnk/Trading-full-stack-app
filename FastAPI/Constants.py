@@ -1,7 +1,5 @@
 from enum import Enum
 
-
-
 ALL_TOKENS = {
 '474': '3MINDIA',
 '2595' : '3PLAND',
@@ -1714,92 +1712,6 @@ ALL_TOKENS = {
 '7929' : 'ZYDUSLIFE',
 '17635' : 'ZYDUSWELL'
 }
-
-# higher lower equal
-class CandleComparer(Enum):
-    Higher = 1,
-    Lower = -1,
-    Equal=  0,
-
-class MarketCap(Enum):
-    N50 = "n50",
-    N100 = "n100",
-    N200=  "n200",
-    N500 = "n500",
-    N1000 = "n1000",
-    ALL= "all",
-
-class TimeFrame(Enum):
-    FIVE_MINUTE = -1
-    FIFTEEN_MINUTE = 0
-    THIRTY_MINUTE = 1
-    ONE_HOUR = 2
-    TWO_HOUR = 3
-    FOUR_HOUR = 4
-    ONE_DAY = 5
-    ONE_WEEK = 6
-    ONE_MONTH = 7
-
-class TimeFrameComparer(Enum):
-    Lower = -1
-    Equal = 0
-    Higher = 1
-
-class TradeDirection(Enum):
-    BUY = 1
-    SELL = -1
-    
-# data tables
-DAILY_DATA_TABLE = "dailytf_data"
-FIFTEEN_DATA_TABLE = "fifteentf_data"
-HIGHLOW_DATA_TABLE = "highlow_data"
-TRENDLINE_DATA_TABLE = "trendline_data"
-
-# constant numbers
-MAX_NUM = float('inf')
-MIN_NUM = float('-inf')
-ZERO = 0
-ONE = 1
-TWO = 2
-THREE = 3
-FOUR = 4
-FIVE = 5
-SIX = 6
-SEVEN = 7
-EIGHT = 8
-NINE = 9
-TEN = 10
-
-# exchanges
-NSE = 'NSE'
-BSE = 'BSE'
-MCX = 'MCX'
-
-# epsilon
-EPSILON = 0.0000000001
-TOLERANCE = 0.0001
-
-# timefames
-FIFTEEN_MINUTE = 'FIFTEEN_MINUTE'
-THIRTY_MINUTE = 'THIRTY_MINUTE'
-ONE_HOUR = 'ONE_HOUR'
-TWO_HOUR = 'TWO_HOUR'
-FOUR_HOUR = 'FOUR_HOUR'
-ONE_DAY = 'ONE_DAY'
-ONE_WEEK = 'ONE_WEEK'
-ONE_MONTH = 'ONE_MONTH'
-
-# timeframes array
-TIME_FRAMES = [
-'FIFTEEN_MINUTE',
-'THIRTY_MINUTE',
-'ONE_HOUR',
-'TWO_HOUR',
-'FOUR_HOUR',
-'ONE_DAY',
-'ONE_WEEK',
-'ONE_MONTH'
-]
 
 # categorized tokens
 TOKENS_50 = {
@@ -3628,3 +3540,91 @@ TOKENS_1000 = {
 "12603" : "PRECAM",
 "18431" : "BIGBLOC"
 }
+
+
+# higher lower equal
+class CandleComparer(Enum):
+    Higher = 1,
+    Lower = -1,
+    Equal=  0,
+
+class MarketCap(Enum):
+    N50 = "n50",
+    N100 = "n100",
+    N200=  "n200",
+    N500 = "n500",
+    N1000 = "n1000",
+    ALL= "all",
+
+class TimeFrame(Enum):
+    # ONE_MINUTE = "1m"
+    # THREE_MINUTE = "3m"
+    # FIVE_MINUTE = "5m"
+    FIFTEEN_MINUTE = "15m"
+    THIRTY_MINUTE = "30m"
+    ONE_HOUR = "1h"
+    TWO_HOUR = "2h"
+    FOUR_HOUR = "4h"
+    ONE_DAY = "1D"
+    ONE_WEEK = "1W"
+    ONE_MONTH = "1M"
+
+class TimeFrameComparer(Enum):
+    Lower = -1
+    Equal = 0
+    Higher = 1
+
+class TradeDirection(Enum):
+    BUY = 1
+    SELL = -1
+    
+class Exchanges(Enum):
+    # exchanges
+    NSE = 'NSE'
+    BSE = 'BSE'
+    MCX = 'MCX'
+    
+
+# constant numbers
+MAX_NUM = float('inf')
+MIN_NUM = float('-inf')
+ZERO = 0
+ONE = 1
+TWO = 2
+THREE = 3
+FOUR = 4
+FIVE = 5
+SIX = 6
+SEVEN = 7
+EIGHT = 8
+NINE = 9
+TEN = 10
+
+
+
+# epsilon
+EPSILON = 0.0000000001
+TOLERANCE = 0.0001
+
+# timefames
+FIFTEEN_MINUTE = 'FIFTEEN_MINUTE'
+THIRTY_MINUTE = 'THIRTY_MINUTE'
+ONE_HOUR = 'ONE_HOUR'
+TWO_HOUR = 'TWO_HOUR'
+FOUR_HOUR = 'FOUR_HOUR'
+ONE_DAY = 'ONE_DAY'
+ONE_WEEK = 'ONE_WEEK'
+ONE_MONTH = 'ONE_MONTH'
+
+# timeframes array
+TIME_FRAMES = [
+'FIFTEEN_MINUTE',
+'THIRTY_MINUTE',
+'ONE_HOUR',
+'TWO_HOUR',
+'FOUR_HOUR',
+'ONE_DAY',
+'ONE_WEEK',
+'ONE_MONTH'
+]
+

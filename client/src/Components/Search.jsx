@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Context } from "../Context/AppContextProvider";
-import { stocksDict } from "./Constants/constants";
+import { stocksDict } from "../Constants/constants";
 
 export default function Search() {
   const { setStockToken, setSearchActive } = useContext(Context);

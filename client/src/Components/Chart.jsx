@@ -8,7 +8,7 @@ import {
   chartoptions,
   lineoptions,
   timeScaleOptions,
-} from "./Constants/constants";
+} from "../Constants/constants";
 
 function useStockData(timeFrame, stockToken, setStockData, setLinesData) {
   const fetchStockData = async () => {

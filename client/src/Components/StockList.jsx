@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from "react";
 import AxiosAPI from "../API/AxiosAPI";
 import { Context } from "../Context/AppContextProvider";
 import StockListFilter from "./StockListFilter";
-import { stocksDict } from "./Constants/constants";
+import { stocksDict } from "../Constants/constants";
 
 export default function StockList() {
   const {
@@ -63,7 +63,7 @@ export default function StockList() {
       <StockListFilter />
 
       <div
-        className="col"
+        className="col stocklist"
         style={divStyle}
         onClick={(event) => {
           handleStockClick(event);

@@ -1,26 +1,31 @@
 import React, { useContext, useState } from "react";
 import ButtonDark from "../Components/ButtonDark";
-import { useLocation, useNavigate } from "react-router-dom";
 import AxiosAPI from "../API/AxiosAPI";
+import { useNavigate } from "react-router-dom";
 import { Context } from "../Context/AppContextProvider";
 
-export default function Login(props) {
+const SignUp = () => {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const { setLogedIn } = useContext(Context);
 
-  const handleOnCLickLogInButton = async () => {
+  const handleOnCLickSignUpButton = async () => {
     if (name === "") {
       alert("Please enter your name!");
     } else if (email === "") {
       alert("Please enter your email address!");
     } else if (password === "") {
       alert("Please enter a password!");
+    } else if (confirmPassword === "") {
+      alert("Please confirn password!");
+    } else if (confirmPassword !== password) {
+      alert("passwords do not match!");
     } else {
       await AxiosAPI.post(
-        "signin",
+        "signup",
         {},
         {
           headers: {
@@ -32,8 +37,6 @@ export default function Login(props) {
       ).then((response) => {
         if (response.data.conn_status === "s") {
           localStorage.setItem("token", response.data.access_token);
-          // const previousPath = location.state && location.state.from;
-          // console.log(previousPath);
           setLogedIn(true);
           navigate("/");
         } else {
@@ -49,13 +52,14 @@ export default function Login(props) {
         <div class="loginSection">
           <div class="loginContainer">
             <div class="loginImgContainer">
-              <img loading="lazy" src="./Images/8.jpg" class="loginImg" />
+              <img loading="lazy" src="./Images/9.jpg" class="loginImg" />
             </div>
             <div class="loginFormContainer">
               <div class="loginForm">
-                <div class="loginFormHeading">LOG IN</div>
+                <div class="div-6">Join Us</div>
+                <div class="loginFormHeading">SIGN UP</div>
                 <div class="loginFormSubHeadding">
-                  Sign in to access your account
+                  Sign up to access your account
                 </div>
                 <div class="loginFormText">Name</div>
                 <input
@@ -78,9 +82,16 @@ export default function Login(props) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 ></input>
+                <div class="loginFormText">Confirm Password</div>
+                <input
+                  class="loginFormInput"
+                  placeholder="confirm password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                ></input>
                 <div style={{ marginTop: "20px" }}>
-                  <div onClick={handleOnCLickLogInButton}>
-                    <ButtonDark text="log in" />
+                  <div onClick={handleOnCLickSignUpButton}>
+                    <ButtonDark text="Sign up" />
                   </div>
                 </div>
               </div>
@@ -90,4 +101,6 @@ export default function Login(props) {
       </div>
     </>
   );
-}
+};
+
+export default SignUp;

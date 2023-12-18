@@ -1769,3 +1769,21 @@ export const stocksDict = {
   7929: "ZYDUSLIFE",
   17635: "ZYDUSWELL",
 };
+
+export const basicPlan = {
+  Heading: "Basic Plan",
+  Cost: "$19/mo",
+  Items: ["Analytics Dashboard", "Email Support", "Basic Features"],
+};
+
+export const bussinessPlan = {
+  Heading: "Bussiness Plan",
+  Cost: "$29/mo",
+  Items: [
+    "Advanced Analytics",
+    "24/7 Support",
+    "Premium Features",
+    "Custom Reports",
+    "Data Export",
+  ],
+};

@@ -11,6 +11,7 @@ export default function AppContextProvider(props) {
   const [linesData, setLinesData] = useState("");
   const [stockListCategory, setStockListCategory] = useState("all");
   const [stockListSort, setStockListSort] = useState("alphabets");
+  const [logedIn, setLogedIn] = useState(false);
 
   return (
     <Context.Provider
@@ -31,6 +32,8 @@ export default function AppContextProvider(props) {
         setStockListCategory,
         stockListSort,
         setStockListSort,
+        logedIn,
+        setLogedIn,
       }}
     >
       {props.children}

@@ -1,6 +1,6 @@
 import React from "react";
 import { TimeFrame } from "./TimeFrame";
-import { TIME_FRAMES } from "./Constants/constants";
+import { TIME_FRAMES } from "../Constants/constants";
 export default function TimeFrames() {
   return (
     <>

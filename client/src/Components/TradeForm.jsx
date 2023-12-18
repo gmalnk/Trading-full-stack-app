@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { Context } from "../Context/AppContextProvider";
 import AxiosAPI from "../API/AxiosAPI";
-import { stocksDict } from "./Constants/constants";
+import { stocksDict } from "../Constants/constants";
 
 const TradeForm = forwardRef(({ removeTradeBox }, ref) => {
   const [tradeDirection, setTradeDirection] = useState("");

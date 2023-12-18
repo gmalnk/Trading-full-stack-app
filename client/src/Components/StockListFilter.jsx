@@ -4,7 +4,7 @@ import { Context } from "../Context/AppContextProvider";
 import {
   STOCK_LIST_CATEGORY_OPTIONS,
   STOCK_SORT_OPTIONS,
-} from "./Constants/constants";
+} from "../Constants/constants";
 
 export default function StockListFilter() {
   const { setStockListCategory, setStockListSort } = useContext(Context);

@@ -1,7 +1,7 @@
 import React, { useContext } from "react";
 import { Context } from "../Context/AppContextProvider";
 import TimeFrames from "./TimeFrames";
-import { stocksDict } from "./Constants/constants";
+import { stocksDict } from "../Constants/constants";
 
 export default function StockBar() {
   const { stockToken, setSearchActive, setTradeBoxActive } =
